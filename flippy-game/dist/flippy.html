@@ -1,0 +1,1265 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flippy – Le pulizie del dungeon</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* Flippy – Le pulizie del dungeon
+   Palette presa dalle variabili Figma "Flippy" */
+:root{
+  --bg-dungeon:#1E1A2B; --bg-stone:#3A3450; --bg-stone-light:#544C6E;
+  --panel:#2B2338; --border:#8A6B4A; --flippy:#F28C28; --gold:#F5C542;
+  --parchment:#F3E3B5; --text:#F4EEE0; --text-dark:#2B2338; --muted:#A89FBF;
+  --danger:#D9534F; --good:#6CC070;
+  --px: 'Pixelify Sans', system-ui, sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#0f0c16;color:var(--text);font-family:var(--px);overflow:hidden}
+img{image-rendering:pixelated;image-rendering:crisp-edges;-webkit-user-drag:none;user-select:none}
+button{font-family:var(--px);cursor:pointer;border:none;color:inherit;background:none}
+button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+
+/* Palco fisso 1280x720, scalato per stare nella finestra */
+#viewport{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+#stage{position:relative;width:1280px;height:720px;transform-origin:center center;background:var(--bg-dungeon);overflow:hidden;flex:none}
+.screen{position:absolute;inset:0;display:none}
+.screen.active{display:block}
+.hidden{display:none!important}
+
+/* Elementi comuni */
+.panel{background:var(--panel);border:3px solid var(--border);border-radius:14px}
+.btn{background:var(--flippy);color:var(--text-dark);font-weight:600;font-size:22px;padding:14px 26px;border-radius:12px;border:3px solid var(--bg-dungeon);box-shadow:0 4px 0 #8a4a12;transition:transform .08s}
+.btn:hover{transform:translateY(-2px)}
+.btn:active{transform:translateY(2px);box-shadow:0 1px 0 #8a4a12}
+.btn:disabled{background:var(--bg-stone-light);color:var(--muted);box-shadow:none;cursor:not-allowed}
+.btn.ghost{background:var(--panel);color:var(--muted);border:2px solid var(--bg-stone-light);box-shadow:none;font-size:16px;padding:8px 14px}
+.gold{color:var(--gold)} .muted{color:var(--muted)} .good{color:var(--good)} .bad{color:var(--danger)}
+.coin{width:28px;height:28px;vertical-align:middle}
+.tag{display:inline-block;font-size:11px;font-weight:600;padding:2px 6px;border-radius:6px;background:var(--bg-stone-light)}
+.tag.legno{background:#8a6b4a}.tag.nascosta{background:#3e8a4f}.tag.mortale{background:var(--danger)}.tag.ferro,.tag.pietra,.tag.visibile{background:#6a6285}
+
+/* ---------- TITOLO ---------- */
+#scr-title{background:radial-gradient(ellipse at 50% 30%,#3a2d4f 0%,var(--bg-dungeon) 70%)}
+.title-wrap{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px}
+.title-wrap h1{font-size:120px;color:var(--flippy);letter-spacing:6px;text-shadow:6px 6px 0 #4a0822}
+.title-wrap h2{font-size:30px;color:var(--gold);font-weight:400}
+.title-wrap .hero{width:192px;height:192px;animation:bob 1.2s ease-in-out infinite}
+.title-wrap .credits{position:absolute;bottom:18px;font-size:13px;color:var(--muted);text-align:center}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+
+/* ---------- PROLOGO (tavolo del Master) ---------- */
+#scr-prologue{background:var(--bg-dungeon)}
+.tbl-glow{position:absolute;left:90px;top:-260px;width:1100px;height:700px;border-radius:50%;background:radial-gradient(closest-side,rgba(245,197,66,.28),rgba(245,197,66,0))}
+.tbl-lamp{position:absolute;left:604px;top:40px;width:72px;height:24px;background:var(--gold);border-radius:24px 24px 4px 4px}
+.tbl-lamp::before{content:"";position:absolute;left:34px;top:-40px;width:4px;height:40px;background:#4a0822}
+.tbl-wood{position:absolute;left:0;top:360px;width:1280px;height:360px;background:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAA3UlEQVR4nO2WsQrCMBCG/8oNroI41cVV8BEU+hji4/kcgg/h4uBUOkixUDoUl7prcuTwclnyr7n8+SF3yVfs18up2q6QSgQAr35MFmAmKW6Ht3qtKEAM5QAExLnb0FoCgLpLNwV0OmzUzM7XB6R+1LSDWgAAkPo5m/De9MEG/9Ymn4IcoDjuyknLrO5GlIu5aA9pvwFSP/KxwOX2hAUnEMcCFpwQ3ISx/ovkU5ADEHdf32sx+oB9Byw4QZUHfOI4QZ0HfPKd89OElizgDGCtHECVB3ziOEGdB7gQLn0ADF1tQ3PdiHkAAAAASUVORK5CYII=) 0 0/64px 64px;image-rendering:pixelated;border-top:8px solid #9a5c36}
+.abs{position:absolute}
+.sheet{position:absolute;left:1090px;top:420px;transform:rotate(6deg);background:var(--parchment);color:var(--text-dark);padding:10px 12px;border-radius:3px;font-size:13px;line-height:1.35}
+.sheet b{font-size:11px}
+.chip{position:absolute;top:20px;background:rgba(43,35,56,.9);border:2px solid var(--gold);color:var(--gold);border-radius:8px;padding:8px 14px;font-weight:600;font-size:16px}
+
+/* Box di dialogo (prologo, PNG) */
+.dialog{position:absolute;left:40px;right:40px;bottom:20px;display:flex;gap:24px;padding:20px 24px;background:var(--panel);border:4px solid var(--border);border-radius:16px}
+.dialog.master{border-color:var(--gold)}
+.dialog .portrait{width:140px;height:140px;flex:none;border-radius:12px;background:var(--bg-stone);border:3px solid var(--gold);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.dialog .portrait img{width:128px;height:128px}
+.dialog .body{flex:1;display:flex;flex-direction:column;gap:12px}
+.dialog .who{display:flex;justify-content:space-between;align-items:center;font-weight:600;font-size:20px}
+.dialog .line{font-size:21px;line-height:1.35;min-height:84px}
+.dialog .foot{display:flex;justify-content:space-between;align-items:center}
+.dots{display:flex;gap:8px}.dots i{width:10px;height:10px;border-radius:50%;background:var(--bg-stone-light)}.dots i.on{background:var(--gold)}
+.small-btn{background:var(--flippy);color:var(--text-dark);font-weight:600;font-size:16px;padding:8px 16px;border-radius:8px}
+.choices{display:flex;gap:16px}
+.choice{flex:1;text-align:left;background:var(--bg-stone);border:3px solid var(--bg-stone-light);border-radius:10px;padding:12px 16px;transition:transform .08s}
+.choice:hover{transform:translateY(-2px);border-color:var(--gold)}
+.choice b{display:block;font-size:18px;margin-bottom:4px}
+.choice span{font-size:15px;color:var(--muted)}
+.choice.a{border-color:var(--good)}.choice.b{border-color:var(--gold)}
+
+/* ---------- CARRETTO ---------- */
+#scr-shop{padding:28px 40px}
+.shop-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.shop-head h1{font-size:36px;color:var(--gold)}
+.shop-head p{font-size:16px;color:var(--muted)}
+.budget{display:flex;align-items:center;gap:10px;padding:10px 18px;border:2px solid var(--gold);border-radius:10px;background:var(--panel);font-size:28px;font-weight:600;color:var(--gold)}
+.budget img{width:32px;height:32px}
+.shop-body{display:flex;gap:24px}
+.catalog{width:808px}
+.catalog h3{font-size:15px;color:var(--muted);margin:6px 0 8px}
+.cards{display:flex;gap:12px}
+.card{width:152px;padding:10px;border-radius:12px;background:var(--panel);border:2px solid var(--bg-stone-light);display:flex;flex-direction:column;align-items:center;gap:6px}
+.card.sel{border:3px solid var(--flippy)}
+.card img.ico{width:64px;height:64px}
+.card .nm{font-size:16px;font-weight:600;text-align:center;min-height:20px}
+.card .pr{font-size:18px;font-weight:600;color:var(--gold);display:flex;align-items:center;gap:6px}
+.card .pr img{width:20px;height:20px}
+.card .tags{display:flex;gap:4px;flex-wrap:wrap;justify-content:center;min-height:18px}
+.card .own{font-size:12px;color:var(--muted)}
+.qty{display:flex;align-items:center;gap:6px;width:100%}
+.qty button{flex:1;background:var(--flippy);color:var(--text-dark);font-weight:600;border-radius:8px;padding:6px 0;font-size:14px}
+.qty button.minus{flex:0 0 32px;background:var(--bg-stone-light);color:var(--text)}
+.qty button:disabled{background:var(--bg-stone);color:var(--muted);cursor:not-allowed}
+.cart{width:368px;height:560px;padding:20px;display:flex;flex-direction:column;gap:12px}
+.cart h2{font-size:20px}
+.cart .rows{display:flex;flex-direction:column;gap:6px;font-size:17px}
+.cart .row{display:flex;justify-content:space-between}
+.cart hr{border:none;height:2px;background:var(--border)}
+.note{background:var(--parchment);color:var(--text-dark);border-radius:6px;padding:12px 14px;font-size:16px;line-height:1.3}
+.note b{font-size:13px;display:block;margin-bottom:4px}
+.cart .grow{flex:1}
+.cart .btn{width:100%}
+
+/* ---------- STANZA ---------- */
+.room-bg{position:absolute;left:0;top:0;width:1280px;height:560px;overflow:hidden}
+.room-wall{position:absolute;left:0;top:0;width:1280px;height:250px;background:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABx0lEQVR4nM1XsU7DMBB9jbJZ+QQPUZeysDAhpG7wCUyI7+A7WdqlypAOWZHlGaYLl8vZ54QCfVtjv7tn997lsnl9fvvECgzDGafugIf7xzX0kV8DQAgfAIAYAwDAuWZRMOITvG/R991sX4xhFrviP5xrkslJHCXI7aHknEPxJarZEwFKxsnydPLmNI4UkxQQY5hs7vtu9kxCnowL1MSoAmIM8L6d/A2UdLe7XVwXlFirBY7N0/5llQsA4NQdsG1v1tJx6g7YbP3dagGXQJ3y8aV8bvFr6WEN2h7uac3fFp9g2jAFnnBpgZoCUo0m9ZwjZ1dapzjet1MbElLWSbVXDquTOteMcfq++xbwk2vUhEik4tcWcRjOxcm1WBb/evuAhV+ZB9aihJ/qFRUt5lBiv1ziXKOqAL1CKWmMYbRNqRC+LzfkjAI0aJ63Xq3aK9i63YkA7YQlUw2taQKda7I3V3OfHo/vWbWaCM5PCczFvd4+8OfzQM4qS/qEFkfj07dDlSJpgS3QUJtbJ1DBqn1AVq0mUKtsGuFT4MVI/CoViEM7laxs69uB4sheUfPPKOtv4GS5t3SekIebzAPW+7ykT+T4Gv69D3wBCsJGvvjwp0sAAAAASUVORK5CYII=) 0 0/64px 64px}
+.room-floor{position:absolute;left:0;top:250px;width:1280px;height:310px;background:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABp0lEQVR4nN2WTUvEMBCGZ5de2lsLhdaC4IIg6N27R3+Gf1tQL6UtLbsH3cabHiQhTSeZzNSLvrfm85lMpnl3jw9PXyDQOA0wTG9wd3MvmW7mJwAAH+d30SJaW+bvsca6alZtSs3kYjFjggB6465vF99KzZCmGblYzJggwMvr86JTg0gWFgGkaQbH02i+fUeKpQhrYwMAABR5aSDSNEMh9MlQbTGA6CXUcnMvjRLgJ71YMCiAPgU391SUIfnukQFw6Yq8ZG9ClSGW0r3dGZJ9/L6NYqrlcHWNA1Dq+tZsjG0U+xNy04gCSCL0VQzA+vLa41AAKkJfNfgA3ajtcck4DegkTBrC/mNy5mPaXV7cip7j31Ky9T3/n35gi+qqYfkCFoDtD3zq+pb1fAcB3HKT+oMQsBdAqdn7+HCtVwjYC0D99Xw6nkbjJ2JAVwDYpNCv1FWRl+Y5V59nHkBdNWh0dipCBtUGs0GiAdycY5FyUqPUDEVe8i6hfdzYglRe7f6YalkBdH27qHd3Qer4sX5RFbgbUoaUY1JIPyCx3bFQbjvLD2D6837gG4nu+IoNVyplAAAAAElFTkSuQmCC) 0 0/64px 64px;box-shadow:inset 0 10px 0 rgba(13,10,20,.45)}
+.room-wall,.room-floor{image-rendering:pixelated}
+.room-door{position:absolute;left:560px;top:90px;width:160px;height:160px}
+.theme-2 .room-wall,.theme-2 .room-floor,.theme-2 .room-door{filter:brightness(.75) hue-rotate(-20deg)}
+.theme-3 .room-wall,.theme-3 .room-floor,.theme-3 .room-door{filter:sepia(.5) hue-rotate(-40deg) saturate(1.6) brightness(.8)}
+.dirt{position:absolute;width:64px;height:64px;transition:transform .15s,opacity .3s}
+.dirt img{width:100%;height:100%}
+.dirt:hover{transform:scale(1.12)}
+.dirt.big{width:128px;height:128px}
+.dirt.gone{opacity:0;pointer-events:none;transform:scale(.4)}
+.dirt.special::after{content:"!";position:absolute;right:-4px;top:-10px;background:var(--gold);color:var(--text-dark);font-weight:600;font-size:13px;width:18px;height:18px;border-radius:50%;text-align:center;line-height:18px}
+.barrel{animation:shake 2.2s infinite}
+@keyframes shake{0%,88%,100%{transform:rotate(0)}91%{transform:rotate(-6deg)}94%{transform:rotate(6deg)}97%{transform:rotate(-3deg)}}
+.slot{position:absolute;width:150px;height:72px;border:2px dashed rgba(244,238,224,.6);border-radius:12px;background:rgba(30,26,43,.35);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:16px;color:rgba(244,238,224,.8)}
+.slot.hover,.slot.target{border-color:var(--flippy);background:rgba(242,140,40,.18);color:var(--flippy)}
+.slot img{width:64px;height:64px}
+.slot.filled{border-style:solid;border-color:rgba(244,238,224,.35);cursor:pointer}
+.slot.locked{border-color:var(--danger);color:var(--danger);font-size:13px;text-align:center;padding:4px}
+.flippy{position:absolute;width:96px;height:96px;transition:left .35s ease,top .35s ease;pointer-events:none}
+.flippy img{width:100%;height:100%}
+.flippy.hop img{animation:hop .35s}
+@keyframes hop{50%{transform:translateY(-18px)}}
+.hud{position:absolute;left:24px;top:20px;display:flex;align-items:center;gap:18px;padding:10px 16px;background:rgba(43,35,56,.92);border:2px solid var(--border);border-radius:10px;font-weight:600;font-size:18px}
+.hud .sep{width:2px;height:24px;background:var(--border)}
+.hud .money{font-size:22px;color:var(--gold);display:flex;align-items:center;gap:8px}
+.hud .timer.late{color:var(--danger)}
+.postit{position:absolute;right:24px;top:22px;width:260px;padding:16px 18px;background:var(--parchment);color:var(--text-dark);transform:rotate(-3deg);box-shadow:4px 6px 0 rgba(0,0,0,.35);border-radius:4px;cursor:zoom-in}
+.postit h4{font-size:16px;margin-bottom:6px}
+.postit li{list-style:none;font-size:17px;line-height:1.35}
+.postit li.new{color:#b0262c}
+.postit li s{opacity:.6}
+.postit::before{content:"";position:absolute;left:50%;top:-8px;width:14px;height:14px;border-radius:50%;background:var(--danger)}
+.postit.big{transform:rotate(0) scale(1.35);transform-origin:top right;z-index:5}
+.mtoast{position:absolute;left:50%;top:290px;transform:translateX(-50%);max-width:820px;padding:10px 16px;background:rgba(30,26,43,.92);border:1px solid rgba(245,197,66,.6);border-radius:10px;font-size:18px;text-align:center;z-index:4;transition:opacity .3s}
+.mtoast b{color:var(--gold);margin-right:6px}
+.inv{position:absolute;left:0;top:560px;width:1280px;height:160px;background:var(--panel);border-top:4px solid var(--border);display:flex;align-items:center;gap:24px;padding:0 24px}
+.inv .grp h5{font-size:14px;color:var(--muted);margin-bottom:8px}
+.inv .grp .row{display:flex;gap:8px}
+.inv .div{width:2px;height:110px;background:var(--border)}
+.inv .grow{flex:1}
+.islot{position:relative;width:92px;height:100px;border-radius:10px;background:var(--bg-stone);border:2px solid var(--bg-stone-light);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;touch-action:none}
+.islot img{width:56px;height:56px;pointer-events:none}
+.islot span{font-size:13px;font-weight:600;pointer-events:none}
+.islot .n{position:absolute;right:5px;top:5px;background:var(--gold);color:var(--text-dark);font-size:12px;font-weight:600;padding:1px 6px;border-radius:8px}
+.islot.empty{opacity:.4}
+.islot.empty .n{background:var(--bg-stone-light);color:var(--text)}
+.islot.sel{border:3px solid var(--flippy)}
+.drag-ghost{position:absolute;width:64px;height:64px;pointer-events:none;z-index:50;opacity:.9}
+.float{position:absolute;font-weight:600;font-size:20px;color:var(--gold);pointer-events:none;animation:floatUp .9s forwards;z-index:20}
+@keyframes floatUp{to{transform:translateY(-40px);opacity:0}}
+
+/* Modale (PNG, conferme) */
+#modal{position:absolute;inset:0;background:rgba(13,10,20,.55);z-index:30}
+.npc-art{position:absolute;left:50%;top:70px;transform:translateX(-50%);width:256px;height:256px}
+.npc-art img{width:100%;height:100%}
+
+/* Toast generico */
+#toast{position:absolute;left:50%;top:24px;transform:translateX(-50%);background:var(--gold);color:var(--text-dark);font-weight:600;padding:10px 18px;border-radius:10px;z-index:60;font-size:18px}
+
+/* ---------- RESOCONTO ---------- */
+#scr-report{padding:30px 40px}
+#scr-report h1{font-size:36px;color:var(--gold)}
+#scr-report .sub{font-size:16px;color:var(--muted);margin:6px 0 16px}
+.rep{display:flex;gap:40px}
+.rep-l{width:500px;height:540px;padding:22px;display:flex;flex-direction:column;align-items:center;gap:14px}
+.die{width:120px;height:120px;background:var(--text);border:4px solid var(--bg-dungeon);border-radius:18px;display:grid;grid-template:repeat(3,1fr)/repeat(3,1fr);padding:14px;animation:roll .8s ease-out}
+.die i{width:22px;height:22px;border-radius:50%;background:var(--bg-dungeon);margin:auto;visibility:hidden}
+.die i.on{visibility:visible}
+@keyframes roll{0%{transform:rotate(-200deg) scale(.4)}70%{transform:rotate(15deg) scale(1.05)}100%{transform:rotate(0) scale(1)}}
+.vote{font-size:28px;font-weight:600}
+.rtab{width:100%;border-collapse:separate;border-spacing:0 6px;font-size:17px}
+.rtab th{font-size:13px;color:var(--muted);text-align:center}.rtab th:first-child{text-align:left}
+.rtab td{background:var(--bg-stone);padding:6px 10px;text-align:center}
+.rtab td:first-child{text-align:left;border-radius:6px 0 0 6px}.rtab td:last-child{border-radius:0 6px 6px 0}
+.pay{width:100%;font-size:18px;display:flex;flex-direction:column;gap:6px}
+.pay div{display:flex;justify-content:space-between}
+.rep-r{width:660px;min-height:440px;background:var(--parchment);color:var(--text-dark);border-radius:6px;padding:24px 28px;display:flex;flex-direction:column;gap:14px}
+.rep-r h3{font-size:20px}
+.rep-r p{font-size:19px;line-height:1.35}
+#scr-report .btn{position:absolute;right:40px;bottom:30px}
+
+/* ---------- STAGNO ---------- */
+#scr-pond{background:#24324A}
+.pond-water{position:absolute;left:56px;top:296px;width:768px;height:384px;border-radius:192px;background:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABEklEQVR4nMWWrw7CMBCHf0uWyWUGhZlAIQiPg0GCgKAweN4Bg+TF5jEEiQFB2qTrv2t3bU9uTb4v17veVYvN+QtLNG1n+8UWdSmwUSAnGAA+79dfoARYRD2G7w5bAMD99kgKFlEt91dZhLO+1w48hyEJWIRSAxwwKlhk3tgFOcAiWAVCwKwCMWAWgSngSQI28PFyAhDWwkobxoIBYL5aa98oXUXKACXVsS3sFOC44yiBHGCjQE6wIlACLAVs8FwjWquB3LuBFCi1lGgLiSk4l5TxlXtfQq4lxVZr3pdw6pLi67AkCwkFLIJdIPRNYRNwgV1jOmgch4KbtvMWcXQGqKn2FXGwAPfcIAukGlhegdST8gcW7IR4uZpY3wAAAABJRU5ErkJggg==) 0 0/64px 64px;image-rendering:pixelated;border:8px solid #1d3a24}
+.moon{position:absolute;left:1080px;top:40px;width:90px;height:90px;border-radius:50%;background:var(--text);box-shadow:0 0 40px rgba(244,238,224,.4)}
+.pond-title{position:absolute;left:40px;top:30px}
+.pond-title h1{font-size:36px;color:var(--gold)}
+.pond-title p{font-size:18px}
+.pond-panel{position:absolute;left:860px;top:170px;width:380px;padding:24px;display:flex;flex-direction:column;gap:14px}
+.exp{display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--bg-stone);border-radius:8px;font-size:18px;text-align:left;width:100%}
+.exp .cb{width:22px;height:22px;border:2px solid var(--flippy);border-radius:4px;flex:none}
+.exp.on .cb{background:var(--flippy)}
+.exp .grow{flex:1}
+.exp:disabled{opacity:.45;cursor:not-allowed}
+.tad{position:absolute;width:64px;height:64px;animation:swim 3s ease-in-out infinite}
+@keyframes swim{50%{transform:translateX(-14px)}}
+
+/* ---------- FINALE ---------- */
+#scr-ending{background:radial-gradient(ellipse at 50% 40%,#3a2d4f 0%,var(--bg-dungeon) 70%)}
+.end-wrap{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center;padding:0 160px}
+.end-wrap .kicker{color:var(--muted);font-size:18px;letter-spacing:2px}
+.end-wrap h1{font-size:64px;color:var(--gold);text-shadow:4px 4px 0 #4a0822}
+.end-wrap p{font-size:22px;line-height:1.4}
+.end-wrap .art{display:flex;gap:16px;align-items:flex-end}
+.end-wrap .art img{width:128px;height:128px}
+.bars{display:flex;gap:30px;font-size:16px;color:var(--muted)}
+.bar{width:180px;height:12px;background:var(--bg-stone);border-radius:6px;overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%;background:var(--gold)}
+
+/* ---------- SESSIONE 2 ---------- */
+.theme-4 .room-wall,.theme-4 .room-floor,.theme-4 .room-door{filter:hue-rotate(70deg) saturate(.8) brightness(.62)}
+.theme-5 .room-wall,.theme-5 .room-floor,.theme-5 .room-door{filter:sepia(.7) saturate(1.8) hue-rotate(5deg) brightness(.8)}
+.dirt.vivo img{animation:scuttle 1.6s steps(2) infinite}
+@keyframes scuttle{0%{transform:translateX(0)}50%{transform:translateX(6px) rotate(6deg)}100%{transform:translateX(0)}}
+/* carte e inventario si stringono quando ci sono più oggetti */
+.card{flex:1 1 0;min-width:0;width:auto;max-width:152px}
+.islot{width:82px}
+.islot img{width:48px;height:48px}
+.inv{gap:18px}
+
+</style>
+</head>
+<body>
+<div id="viewport">
+  <div id="stage">
+    <!-- Ogni schermata è una <section class="screen">. game.js le popola e le mostra. -->
+    <section id="scr-title" class="screen"></section>
+    <section id="scr-prologue" class="screen"></section>
+    <section id="scr-shop" class="screen"></section>
+    <section id="scr-room" class="screen"></section>
+    <section id="scr-report" class="screen"></section>
+    <section id="scr-pond" class="screen"></section>
+    <section id="scr-ending" class="screen"></section>
+    <div id="modal" class="hidden"></div>
+    <div id="toast" class="hidden"></div>
+  </div>
+</div>
+<script>
+window.ASSETS={"acqua": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABEklEQVR4nMWWrw7CMBCHf0uWyWUGhZlAIQiPg0GCgKAweN4Bg+TF5jEEiQFB2qTrv2t3bU9uTb4v17veVYvN+QtLNG1n+8UWdSmwUSAnGAA+79dfoARYRD2G7w5bAMD99kgKFlEt91dZhLO+1w48hyEJWIRSAxwwKlhk3tgFOcAiWAVCwKwCMWAWgSngSQI28PFyAhDWwkobxoIBYL5aa98oXUXKACXVsS3sFOC44yiBHGCjQE6wIlACLAVs8FwjWquB3LuBFCi1lGgLiSk4l5TxlXtfQq4lxVZr3pdw6pLi67AkCwkFLIJdIPRNYRNwgV1jOmgch4KbtvMWcXQGqKn2FXGwAPfcIAukGlhegdST8gcW7IR4uZpY3wAAAABJRU5ErkJggg==", "avventuriero": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAECUlEQVR42u2WX2jbVRTHP7/c5heSrNNt1UmLqNOHsFgrCKImbdcNgtVtbFBp1T0KZQVFGRRKK05pHRRqBWVQX3zan8JAycSVqKNJW7cHEapGAhbXsdattrbUpYlNenN9yH6/Jk2TNemmLzsv4eYk53vOued+7oV79j+bdpfjK6/uNhejiXCOnuVuKfvs1UouBLBJCM70o6TafAd89moVk6mCFXl1twrO9Gd911h5jED8Z63kBPYJtzo3UA/AqVM/AFAzMWv6O2YcjCbC2j7hVoG5fhorj3Hhjz7TL7b5tJJmwKu71fmT2cI5mzwZB2BwOsXaym+JF9Qpy+fwiN23Fc80h0iPk5ZMoawWfBXvbKhIrVDbAb65nm7l2DNH6ZhxIBJJXmm4P6cLbT/2pVv/Uwc+Vw8xXXIpHtFKOoY+e7Uy9lBLprJ8i34/APtbh3m1bgsAZ8eWcAiLKf6dDGslc8CY4kxhZbVkrY0kDrQFafE4zSRO7IxRe+2KtikQeXW3Ck31oRbnSU2GETW1XPn4cwC279qRE+DQG9/S/XASgK5rVhJ2y4ZaX3AL5G+nVZ2rG01o2CT8g2J46DANL38JQHOVhdM3kvRWLNMx4zD/11xlYXA6tS4f8tm6JKxzdQNgk7AsYHjoMHte/ILQVB82CU+vRBFSANDicdLicdJcZTGT8Nmr1aYSGJO/agCBSCdKKiyPuglFulCL8wQinbxwseeOITsvB1J6euhCka7cU+LqQcjkHUkg72V0KR7R6lzdfL+3M8d3vDJGmbDy5HuNqMk4ajLO+Rtpn/Hp1d2q5CHMpKFTFywlJJrQCIZXkznpO8GRzlpeevMiAF9/sjdvnKbWYF423HZavbpbtXicHP3s7fT6qQ8ox8pNkggpWMsMADk+gqipZdHvZ/73vwB4/MNBraQOlMmVdFDdihQSR0Ig9DT1AJMVmcBa9PvZWu8F4O/gqAmt9Y5nWcH9ERoXI8dJTYaJXl1gf+sw5wbque/gQZOGWx7ZRsODb7EiytCEhhSS1x6ycgTM6rfv2oEUsshT8OeQysRuU2uQkesfZf3mQFswzQthpbsytupYWeaX9y/QPmczeSEQG0/gebtLrWV+6NatmHkZaUKjxePkTChK+5yN15/basY4O7ZE786YScp8dFw3ASNrU3yqL+9N6L8cJ6WnssQNQrZfluiJJFK3FscBJRVyfISm1qD5ysnshiFeMzHLTZI54oaVY6XpMVtxIPq04Vn11cAeolcXCMz1m1NtVG5cvzUTs7TP2eitWM4b/N2KaPEkPBOKru5xhnhm5cZD1JEQjD/xQEGBwelUcST0iN1KE5q5FcZxlEJiSVgwfFJIyrEiE7kCy2sGXgpZ1Bvhnv2n9i+U9MH6LMbZwQAAAABJRU5ErkJggg==", "barile": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAADpElEQVR42u2XX2hbVRzHP/dPcpPUZjaFUcboyuqYvogOREpZxXVB0RfzUPFhbGMgk5WW5VX2upchdCysGhRNx5CBiAhVwVaklTJGwSEKdgbEjVKCbG2a0iQ3vTdnDzf3pGmSW5Mi+rDfSw6/c879fc/vz/f3CzyR/1iUdi69EjoshOZcVWwh9XP5P5V/BcBQZ79QbMHUxW7WMxv8Nm02PHdsyAbg53mNlKkzs55W9gRgqOuIwCpzYywCwJmrj/D7tLpzpS27Rj9xvAjAhTk/6Crza82B6J7wrDKzt4YBiI7MIjQFU4VErBaEP2cCFu99qyM0hQsLAYwyxCMWEznV04TnrmscYOpiN5GNB8zefFXqxr7YcjwQDrG06IA6HywTD1sA5AvOI9oCMNTZL7NrZeEuAJv7+vj9y3n8uTz+XB7FFnL97EvVMOQLcNawSJk654NlJ5StAlBswcl3fuDkqR8BWPjkIR+PPo0/l6cUDlEKh2rOLy1qnDWsuu8kCyqGhxOa5oAwNGIn+hk918upxAoDx7s5nUgDPhIjldj7NEphf+WGSbJQfU/P4HN0VdZrt++1XgWu23pePgrAzbEDXP/0Abc39Zbq3DXerCQbKqP7johvPneS7e03PwNgtbMXdOeFLqidkrlT+1KjjAxLM15o+JzSli3XV99/AYB3r2f5IKah/b0J/EL6V53JrM61qENKdlHAIFyZE7wW9Mn7KVNvmBueSdiIbFyP2Ps7sPd3cHjYkIbtopPkWkAhFvG1FCJ1Nw/sJk893yPXLpA9A/D7NFn7Dfcrtd8K0PaouIlxl/2gJF3frniGYGXhLuuZjTrjO9deYqptANjZ110QjRjwwOCLnjlglCEUbM4DTfGdTqzWvD46MrvD/dU+4VaCFlCYzFajmtxySnC7rqVeUBeacEgmoJus2z2wtKjVJKbbA7zC4NkLLq88w0CHxVffp0FTGL9VAnQ+eqNKLH98+J1MxKn7y4iuPlKmY7Rn4ChfA0a7vcCl3IEOi9FzvW31gsydexjlFnuBK2/hE9v7QOxE/z8C4Bo1VeizCtzYWG5vJFvt6iM5bGIXS1yazvC6YhLVBZemM3I/svaXPH/m0EGm7i8TP3SQyaxOPGwxkQvubShNDlcn4PEZg2tRU5Zb/KeAHEC1gMLSouaMYRUJBWEy6z0de9LE/FpaGZ8xanTN+N4uClluKdP5nVhVdx3NW+JQ+YdEV+umZwBDVT2Hjyfyv5THf8+M36JBgkwAAAAASUVORK5CYII=", "boss": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAADy0lEQVR42u2WX2hbdRTHP/c2bSZbqmVNm5juRbm1N5UyGOxJBIfog1tolVmQ++Rg+BRFnSKFyIJ1aBXkPokP+nIZBEGnbA+KVBnFh4IUNtu7JGAftqxpsq4tcbRNk/vzIbnX/F/S9UFh5yW5957f73x/33PO9/zgof2f7BRBcYqgaPY9RFC84FZFJ3vK7TpOMia+i/S09HnzvJ93vxxhkjGx76f/+ZsJsRs5KmpBVQYLERS7kaN1fg/MQDF9RTy3vEwk3oudghBBcTF9gbPnvYQapKVdEHInLGz9epcnB2ROMiIsLACeLa5hYVW968SkdvNvRJpjjcR7+eNSlivvu7nadZivPswCEOOatC8MxLgmvRzNt2Tm2LiXSLy3as2+pcDugInodsPvM2+4nP+/LO06ax4IQO0GWtRCRkaL1uf5atdhAK7HMlyPZbhHni0KVfrRcQ2cZETIZXyP4GKLAv3TCgDZqSS1mjAR3SarBQDwGilkZCwsslqAQWOFH1lqGMvVih5FV0snO7fEsXEvH505C8B7nq95qfzu+WA3n3x8m00tQJ5iCaAWwGukHEB77oJ39FdEMmxWgam19VyJ6gVzE4AhI8MtbYCAkQYgpflYMH6T9lyEq5rfCZ4MmyTKgGy7N7XsBLeD2izIbdS41GqwKLpKImwyrKus5wr0eVzYjIjy4lXNz4ndXRZjdwDon1bo87iYm9/g0W9vc2CnFKJZDcjNpp6iq8TDi+y4SwXc53HxosdC0VW23YJhXUXRVUbVQ8x2d7PtFk7w2fk1ADZPP46Fxarmb9qWDQEM6ypz8xtktQAHdiSH9p9yMvHwIgCJsOnk32ukyJ4e5FY04QT3GikGjRVSmo9R9RBPTD7WXgomGRNDusJ6rkBmKl52khFYHKSHIV1xfBNhE++04tRAD10MGCuIipmQ0nzON6+R4jI3pJYM2ALS53FVBf8h/XlDpiqD5ynW+dqFmadI3i3dPwW1xSKweEofBeBi+gLJsMmnr75et9Hvn73NkJFpCNS5U+yYUltClAyb2KNVqsH4fXqG13wfOKk4cbwkw+O+c1xKz1RRb5/e/l3oVIovc0OqbEepRpDi4UUkZLxliV40/2bQWAHgZlmMDtLDFoWmbXjfkfnWwNPir4xVFzhbIb0AR4wMq5rfeW6l/23PAoAvMn9KlVeu9VyBrBbgmeP/ttXs/Bo3tQF69nDXlNp1DBEUAhy67S4BmJvfcNgYNu62pHzPACpHdP+0wp2ppCPHds6PGBksrLpe3zcAlWxUtmxlito9+UP7z9g/0haifdQNg9YAAAAASUVORK5CYII=", "cugino": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAEeElEQVR42u2Xz29UVRTHP/fd92aQEE3QRAtYW2emIBiNaTulJq4MGtuJ0y5YwJaFBFOo4Q/ppI0NblloYiNTtB2CytbaVhaARcqUtpQflU0XhKCdefddF6/vznvTmYFGjS44m3nvzr3nfM8533POffBM/mMRWz3QI5PasgQlpc3a996C+NcBfGAlNcDp+V4AHs/FWbs0zzejcwBYlq9KeoLz6qb4xwD0yKSOK5ey4zBwvcesP56Lc7bvawAyA2+b9YmRK6xLm4J6uqg03JSVbdpSJY4Xs4zsL3BsrB+AtUvz5L/4lf5P3gRg5/t72X5gnbvDywZESVpGz6RarGvHbmT8xI2PAIziiOiKgbDx/JnrlCwbe7AJcqsIvIYRsMIvGSelqzcEiqUXdWJnagcAe062bPbqsyb/YdD/zcQS+qkASE+QlW262nhgZPuB9cjhPSdbuDu8bPZ9O/ob2lPRQA3uRocqJqy/Zgoy0wkyJHS+q8i50WsAxEaugIzxeC5u9q0tPGR433cVMkmBRqMHd9f0NOOkdHYqyfnuBVB1ACjLB1cWLgKPvum95n28cynqmdK8uPcF3jv7itnjaJv8V4+ilnOrvudTSS7/Un5yFVwsntIj+wv0/NyCoyv4ysLddDj8f3jPxJd/AuAOrdI322rWmlNxzhz/UdTlAMDovgs+kPRt8l1FysI1ii+mbwPwQ3sxYrQsXMbSRcY7l0ykrJH7OMKvgPHOJZpT8acrw/Lgy/7D8O/gwWT6FsKSIDwcpbg666ep0L1oUgHgCLCxK+dD8pywWCmukzm6rXEVmLzk7pGdSmJJjbAknqfRSnPocor2DodDl1OUXIE3sMsQ0Mam6fNmMke30X9kByXXX3O0D6r/yA4DuiEAJ/cAeyMw2Z/aKCmNUwPn4ZkUL114RO9MAq00H868RnuHY3gRkwIXP3WZo9tqcqhuBIKDAH2zrfyhPYQUEdKNpYusLTxkIr1E70wiQsLxrnnTD4LqmEzfivSDximQwq/XDQIdnvFDHkjh4DJ9s62UXEFmppXxziUcbZN4fj/n371JWVumHxS6FxnvmkdIgZDiyWWYiSV0gFRYkuxUMsL4q7OatzqFKcNwaAsHl0F4FW7k7hkOWZZAewobOzKurbrGQ2iDUnO0HTFuRnDaj8CxsX6kkpVmhYXn+foC40Gzq12G2mJSFUV4eJSFaxpLLXFyDzh1o5f8pTnaO65hqVLD6TdRLoq6ACbKRZGVbVqh0EojLGi68w7u0Ln643QjUiufLtM+nWL99Kuh/Hro2jSrz4FgWimp6Jl6fVM7Due9mgPhWeAOrRKzNROlW6JHJrXA25T/mp3w4xNvmNF6dVbT3kEk1+5GcmJSkJ1KGoDhIeQOreIID60qkahlvOGVLCvbdNBWndwDMtOJTUOn0L2IN7CL5lScleJ6pJOGr2L9tOg8y2LLd8IgdNXlWD0dA5IGhut5u6U7IUBBLYisbNN4lfxXj+IAiDVyH0d51PP0b30XVF+jaslWvgWeyf9K/gLH+AiZRPwFPwAAAABJRU5ErkJggg==", "d20": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABWklEQVR4nGNgGAVDGXhxKP334lD6T4kZLORazMDAwFA/7yzDlSPPGRjm+fxnYGBg2PbjHiOpZpGswYtD6X/9vLNw/pUjz+HstfN8SHYE0YqRfY0MkB0AcwQDA/GhQVARLotxOYBUh+CUJGQxIQcQ6xCsgujxjA8UleczJPlWEFSHK30wEWULAcvnbe4g2wyKHEANQLYDkIOeklAgywGEEh4pAGdJuHHeSaziD15eYXj44RJGwoOFgryAHkkOIDkEsFmO7IiHHy7R1gHUBiQ54ODNZQTzPKmhQLQDlNXkiDaUFEC0A+Zt7iCqxGNgIC0UiHIArXzPwEBkgwRWyJBa2Dz8cIlgtiTKAfbqUXD2g5dXSHIEIUCwOjawmYYiTqoDPtyG6CepOsbnEGIdQMhioh2A7hAB1SyqWEyyA5AdgssRH25Po12jFN0RDAyI0CDV11QD1OiYjIIBBwAPIqPr0vIV5QAAAABJRU5ErkJggg==", "drago": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAD30lEQVR42u2WX0hbZxjGfyc5PSc5Rjbj0plwQlxqh1VHmeiFJakyBkJhpcExGAw3tsGKBR32Sjah4IVXCwq10tKVbeyywS4DISDDUehNxVJqpTiQjAZ1y2Y2/yW6JN8u0hzmVvPH6dhFXwjhfHzv+zzfc573/Q48i/9bpOMR0WHVxUHW9Gu6SMcjpdVsqXSK7FpY+FSXOCjw7FpYtFQ6S683odeXn7RHZNfCYkKvL69Oh1UX99vaRV6R/QDn8+aaWgu+UtPTFs9ZLVi3dwCYWV+WyvVEh1UXM+vLUil7n0rAo8nUTQ+QXQuLxYGze4LPNbWKQmZOxyOi4c4g56yW8giM/rrB/KkhstsqtQMf0ueuIqC5DTCf6hJ+LaeKT3X9w7A3Pm7GpG4DMH9qiFAqtScBqZB7x71OABruDAJw2nEeyWxi3OtkaimBR5P5anWTIW8N7/0Yw5ox8/3KFQC+afkEgGAswe2tmFSWAgC3t2JS09xdKX8KwAAHCKVSHH++koTIHf4Lj06XxbILPLDwQCoEXpBA3slNc3clRZHpqrnAl33NDC6uADDudfLDb+tcPuZEUWSmlhKc/aiB117s4bhiIbDwQCqlg6RiQ8T8pMR3P12hq+YCn/W9yta3ywBMLSV43VUFgPaGk4uj9witjNFe08MLSDw2pynWDaZC4AB91TYyT0qEVsYIX51HUWQUReZWMmcuRZEJX50ntDJm5HfbK7BmzBSbqHsSMAvot9uA3H90+DoAvdEgddMD7Oyk2ZAzKEquZXujQQCiw9d35UlmE/siMJ2MScHVDeP5/ZFZTjvOk91WDfkBvJFLuZG7rdJe08O7o7NGTnB1g2ImLBr5Pl9obhNzTa3Cp7pEOh4R99vahU91iRF7nQhobuFTXeItLGKhuU10WHUx8fIrJU1PqdQbrcti4Uytg8lonJubW8imnHhVkkRCCKMbJqNxQqkUZpFTcV+j+O83Y7/dxq1kioc/JzhT60Aym7h2ws21E2667RWks9ld4CKTpa/axoEo0FLpFO6MTLtF5ebmFjcaPQDInQ5jz/r071i3d/jg0WNEJstFT3XRCVj2K+jXqzjZ9RLpSByAyWgcjyaDdoRGm80g1R2cIaUISr0Ny/66yRvSr+lixF4n/JpuGG8/X1GmcjYnzRmjrz+vd9MbDXL55DEAjiZ/4c0KrexDlS1TOh4Ri52XSKoKAJUdz5GOxJE7HXiHw9KhE5jQ60Xj0apda5/O3uNtvZZA7NHhE/BrukiaM7xzpMJY+/qPTawZ87+feuWo4Nd041fq1DsQBQwSfwENLDz4b07+LA4j/gRjfJiptCYbpwAAAABJRU5ErkJggg==", "elmo": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAADb0lEQVR42u2WQWgcVRjHf+/tzO7qBiE5dLpY2oOghxJsi+5kMVWs4kEvyUUvm5PSBEw91KsNmIBHQRPBFEFEe2gLBkSSgxARVrJbxASblJpLSSFsNpCkLcTu7sy+52E7MzvubrKbCnrId5r3vnnf//v+733/9+DQDu0/NtHpgpRhaSElQmqUq4NAUpKvFDqOJ9v90aZH2/ToiZEzaKX4+L3TAIyNvMBH7z5PJm1hR5O6L35U/6sM/Dj6ljZRNbCpPOOjNs6jvL35slMlZkZwkExMLTB87jjT2WJbjLRk4IfhN3TKsLSJwkEydnmJTzMn6B/s5dXBk3jzDpKYGWHs8hImivFRm+u/bZFJW6QMSx+YAZse7VVrougf7A35f55ZCY29hEwUZafK2u1NAL775S55tkVHDPTFj/rgE1MLId/KbJ7szM2mwZTj+N+zi1sAZF45jk2P7igBrYRf1aXRdMi3We7yz0A9cP1WAGyXXBKRmv/tZ45gR5NNkzCaJxDQ6VGbnbkZAq6v1huv3t5kuN8iZkbQSrFbDfxdhoBKmwxMjJzxq1qeu+Of9mYWMyPEzFqpz/Ym2VkrsX6rwMjLSf+f6LE4u0q1dwg9oRk/f6olaNmp8sk3f/hCJGRjHUJqtBLoR8CthMpoXBgEq+/39VsFprPFUHAhBfNzQ3u22cpsvhar+ICL19D/TCI0sKNJPT835C+6MLnqM9F1byNoOeuploBO8UHTeW/NhcnVEBNGq0An37RhchWA5bk79KWfqKnh90V2VYHP33/OB8stPGxDdB9ydsDauwuEDDpl6euf/P0DuHhtAyE1CSlJSMkHX/y5L6RyNdIISL762U5o3JBArrQhzr32lZ78MKx6ZwcsuhfjAFzJ1RSuO2rum8DrTyf8LkhEYHr+Ljk3rIoNW5BnWywv3tfT2aJ/IHfKTwL3H/vubybJTXXAO+3j509RdqoN/qgRoeJW9wTb+qty8PdAvlIQ3nmQpsmlL3/v/KXjBkr57a+FA9yG0aTWSiGkJJO2SESC/a9nolX175zoDs1dX79HrrTR3hZ4LNxwiyKTrrXObhUGXjyyL3jFrYbAr67tED0W9y+4x3oTpgxLD72U3Pe/K/lAtHSpsud7wOgkgRtuUYgFqev1ov769iQ6XwmoThmWxj18/R/a/9j+BpfBagkN0MUOAAAAAElFTkSuQmCC", "flippy": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAC+0lEQVR4nO2WT0hUQRzHP7uabqt1kHINiUjzEpotCNKhQ4fWEGQt8iAVFBSYXTp1KpDsEERkUJ6iPwgFWaEJUdYhiA7RYVn3uKJ4WNzMf8iqu/ZyO7ze7Ly3b96+9Vrf07yZ+X2/39/Mb2Ye/Me/Do9qoN1Xl1WNvUtP2cZtJaZURTQ2elTFRUeYrJVwKzFgswIykWfXfrTGy2Ks5PM1MpEoAKf7VkRWW4kx4FU5Noi2lVWLvvUjd/LMysvuJsYK2y0ABNGvjTkANjK68c3ecbyDIeyWu1CMHZQrAJiIKnbsprWmhcWlZRLxFFMvvxYdU7SBjYxHZNFYsQ+A2ckEAPW9Z4uOKcqAdq9NtBeXlkW76vklYrEU2fnpomNcGzCq1jsYYnFpmdnJBI/HnjHSXaYk2koMKIqwPNhMJhLV9+1mO1VALJbCWMhwf5tJVIYqpqmpEiY23RkwTNQF9fbojQ9CVCVsoLahEoD3b5K6aAEoDchwytgKo9rdiBc0sPpWJynda3/k7IStCPh085++vwb8eePKR+VV3868/lsPN7l+xVy3dsJPxv1cCK2Ziu/RhN/2QXJ8DVUmCqFlz5zpWyWuNGB92Yy9N7Ktv/vAVngkdN70feJUjWjbPUTgsgjLg826cE93rnP73yOyHhFdneNP0RaSaMMDpnhVfbg2AOBp7VYKA2gLyRxp11W04QFH4aINCHEHYRluxKHAY2RAZC+JawtJW/F0fIZ0fIZA1zlXBgquQCYShUgUX89tIWyHdHzG9P1jeAhAOor5d4CjgY7wF6zHUJWxjNWfSYuwfgxVEAbkXyu7I5j99oIS4PeBY47C1dVrpv5wfxthkRRCwziStj+V8lufiUTxHe8kOz8tzGiHT+YJAwQOBkzzjDhrMpC7F/K2QCYwkP44ItqJeAriQ+JbXmr54knEU9QF87msp8NkQJ4sT7T+UJj31C/1r3DxUG4LahvMN6iZS48TV6NcA/fPeMVkuwJS3etWHicuUw04kTiJuUEhrj9sec0yupsl3gAAAABJRU5ErkJggg==", "forziere": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAD+klEQVR42u2WXUgcVxTHfzOz4667wrZ+YGM0glQwQWOsIaKNZfsQSiilfWmhREKTPDVE+1QIFvsQsD70KW0RQjGgtBRaCn0pfSikS0WtYSVog1liUrS6JmHVuGU/HHd3bh/GGXd3ZrWl0PbBPyx758y5556P/zlz4QAH+I8h7adwzFsuANySyp3EE+lfc6DNVy1C/UcB6L4W5uXnDtl0fnr8iJRLWM+aSDOf3JAKA9jLeUdhm6dShAaaAWgZnONu5CsABk5cBaCqtITRxYfMPPoSLRTkRu8ta280tU1VaQkAfVPXADhddwHSOqgyk/FVaV8HsoMBAdA9dJ+3autsxk3DAOfq3s3b21Dhz9PJfT+rb9oy5Co8vKusxnZ4NLVtvR9dXqRvZz1w4iodtVW2AL5eWaYPaK89T5Pks+RuSbXpyoWCTX3LWKR1S2amFGBmZQx2jJvyaGrb+uWiSfLhl3ZjHOmqtzngcirBbDAJqkw48jRPHhMZxPBQniy35gCjiw8JDTQjhodYYovjlLHEFvV4LH7d2VqTHB1o81ULstmiLZMbDWA5uE5iV6goVhD1eIiJDPV4CIsEPRObuAuSbs/AjgGAORG32AuQEllaBtdw6zIoCtN6jA7Zn7e9NCM5Oj7SaaS/Z+LB3g7MrIyhhYKkXvscFIVSVSElsmgibbWjiU86P2R0eXH3UFUm5RJEI1DT6GV2YpMvXnze0u+ZeGDrAtvQMA8prHXL4BxuXbZ6v+uNm8ysjCGGh5gNJrny8++GAyLrSLpLk0uUJZ4wXnBmXgbmkxu0HzqHJhsdUJHc4PqZU3nl0UJBG2FbA17GA03OZN6J3C2pXD9zihd+vL1nCSQURfza38zJj+5RW9bAx1NrAHnpl599hTZPJe215w3BJJDNosm60es5RO5Qy7n1znHO3rzrSGw7CXM2m1NteiVqUzNL0f76DVrlZyxLYZFgpLsBgG/vp1nfSNjIvecgckLhtDvmLTcm28kAbknFL7loqPDTUOFHE2nAIKGJT7+PFbVtc8Csf+6giaa2OV13wUq5WY7mw2/njVoAty7TGvDmyXpf9f91B4qhHo/9sJ3o50Tcpr+6kNx3PhQdxcWwxBaXj/QSExnCmT/oUMv31F/fSBATGVYXknz20hHeK+gARwfcukw0ApPfXaTk9hSBD4LEfdUWQaeVmEWqaT1mkNaBYDWNXvhlk/c7K7k0/huarDPv8PmXnC4jP1xs5s3hIN9cDhhfw8MQjRj/YKxNeSGiESP9NY1eVheMATWpPS568ypagrinkrOj9yjNSLvXLjPanJ7XRHq39xWFUP9RVhdyDKkyaP/gUvp30earFsXuhwc4wP8SfwL0uqBPm9DK7AAAAABJRU5ErkJggg==", "fossa": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAADU0lEQVR42u2WX2hTZxjGf1+Sc46SBDqjdGyhEihsEaS7qQj2ZqUSmTLXEjSObQgTxFAmFS+M1ls7YU7iYN0Yg60KcaNK7UVdR8lwIyJ1FwUhtlop6xqoaGtqz2lI0uTbxZmnjW3TdhvsJg+ci/d8f97ne773zwcVVFDB/wyx3gWNmk/aVDsAxVzB+m9T7RRzBeLZMfGfE2hy18q8lNxsd5edZ8xJAA6ef45NtTMwOyr+FYEmd60E6D3jAiDU8YyZgoP4tYZl5weCCfJS0n3CZREByqqy4kCL6pUAXRe2ArA3Mkn8WgNis8+aI5+OrUgk1uYE4JvPpzl5uQG1OSbWTED/YpdcbNsMgw2731vV8QtkHoySeaJb9sYtLi5Fxjmt/ylWJfBCdoCec9UAvN8+wVxRob9715oC68bZfr6877JUOHTRsMZejgvby877uurp66ov2fBq5BXCfp3d7/5K5sFoWeeBYILewSx5WSIinQcg1uYsOeASAovR11XP3sgkqreGotPJcFKhtS7Dz5cfEQgmEJt9JV8gmODG2X7Cfp0Jt4fuEy7SKYNDFw06D5h7plNGSeoCOBYb3tkpHDVvMD8+AoBPn2ZP6A69n73GJx01XIqMExca3tkpeo59RenaLNHkJjy5LLFTpvRHfpD49GnAA0DV605a6x4TH1whBprctTLs19kXeZs9oTv8dHUnwcO3mSsqgCnhxi2uZRWzGeY9px7qHPsRGmWW33OSr095OPrpFB+8NU80aRK7pT8SyyowMDsqOrfXync+uktBMW9npuDgZvuC09TQY7buqyd4+PYSEheCCvfu6cTaqkmnYOBKAc/+ZtLnvyea1Di+zaBlcFKUzYIW1SunVA17vohNtdNzrto6XajjGd8eryobhOmUYckN8HE0zUzBPKcnl+V6bkKsWgcaNZ8sKDYUIQj7daJJJ7/c+hD5dIzpxNCqaejZ38z8+Aihg7/xXNtgZcRi6csSaFG9Mi0Uq8mE/QtFZTipEBfakjQDCJDjzW15y74y5CAtzOz5bkSjd+YPsa5ecH3Hq3I4qSzESN6UsrUus+KaaNJJgJxllyvDa+6GjZpPNinz62rbA3nHmlrzP3oPVMn80uD7+8rW+x6ooIIKKvgLt7BKILuGJjoAAAAASUVORK5CYII=", "frecce": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAC6klEQVR42u1WXUhTYRh+vtlydWaihWttFSwzITTv7A8F6UIl6Eq8qCUsZIx20XZhGXkhBP2pIxKHSd2sEemNiHiVDodmXSROIzScsFxYXTRibeam5+1intP+dWA3sQcO55zvnO98z/s87/t+B8giiyz+V+g4FRk4NWU8Ua/QkFaupKDPQ3qFhoI+T8KhlStJr9Ak/bihtJj0Cg3xSzbil2wp3xPA4llr7fdRWV0Fo/oswoxPHt2LhzH3/ZdbYQ14mV6hIetUuzi+QRI8vm2De/gDrAEv25KAXqGhYGAVUpLg5ts+nCirZ+nYCxJ3eifxbtyJyuoqyHxOAEBXqx01JZHpFssMbL9W2LZt0MqVomyOQRtF30eTFWReXx4ivUJDYbeddJyKBBun2+pIx6lIx6kyywXHoC1hQkPRX9+FxcNue8xZSDzHoI0MnJp0nIoaipRpF5ckG3x+pSVhbOD7CpMUSBD0eUSfczZzJIfxuF7fDqO5HABw6Nh+3Hj7FN3eNzhQyGHbSRgdrbBodHZ3To1C5nNigyQIF55P6ve93hkAQCHbA/Pr7sjzC0b0fltiGdmwMDdCADDdVkfry0Oi30GfR7zuaKyl6bY68UjmdUdjLS3MjaS0YlcqAg9ONyPsthPbnRczLvM5MT4LfJkcFqP++Hsfxnom4Od4IJD4rcPqk7g7+gyyM9covhpYqvJ6Mt+DkPwUpD8mRK/j5e7rmsMaCLlgMXVuKC0m6/wii64Yy7wDALC34Gh6Ag1FSnr5vhcU8iOH8eCl+aCQP9JQXIvie2vLqwAQiRrApaaqhEC+fv6Jg0fyxbPq3EX032pHNLkEC/ICkpgMp5Af+vIWGM3lqCk5jrFPEStdXlekuWxKPvDoVdqG5WIbuHO1SSSeUgGtXEkmU4Uor1BaFssMTKYKUfpUrXWrDSrM+JiuyJKxbTaXiQs1m8vQ3TULAIifvBNgqXa0aKmk8tzM63in9vTsn00WWWTxr/EHm46NhxeV+5IAAAAASUVORK5CYII=", "frecce_nascoste": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAEPklEQVR42u2WP2wTdxTHP3c+bOzcz3ZwmiLVjbNXqioVloY/aoUIysBAEQMTU2tLIaLOAFFYqoK6gAUNkl3oEKkSAxSGIkFVoVbl3xImtnYiEeqASbnzne8S++5+HS52cExICh2qKm/z735+3+977/ve+8GGbdj/3bYnc3J7MidX+678a0CJEGTGmVVawHgwfSgBwJHrDjO1WeWNCKyMZKY2q7SASrpO6ekT3JjOfEwjGij89FuRuakyJ6f/BOBJMt1FYl0EhvTBNnAjWOYQVRVEswnAfESjInQA8q7N9IFEl5/PfnC5bz9eP4HtyZyMNeHWvfGO89+HLwJww6nxyDF5P5FivxDkXZsRT7JfCCYNg+GtW9j7scelGwt89fMXiA/H1l+CIX1QKr7sAN+3uxRmQZVkFj1Op9PtiDOLHqdEL35cZdQ0KUcFhYZFLEwQ99zZl2JpqwlKNJtcfXCcfbtLHMyI8DwW+sjp4e/vbZuU61MRgjw2d3sUdi34ZBY97vYqVCI6eeyXim9VAq20X31wnD9GvmVPEHC5WgMNSpt1btsWhmvyyDEp9mdBDzNQievkqzXuOAan+t6lUK2xS+hEg1fLrItANFDQgyZndp7htqryjRDctGwO9yYpzc513C0u2GRrBodzA/xYNakIwaTvoUQkGd9bV2d1EWgEkuGtWzCqZofirz2t8XV/tuPuB7c+Z26qzJHrNbKOyX4h+LI/Q940yayztdWuDKgK29yAPbog6xh40QgVofOWazBh2UxYNiecOiecOgADRwv88us4bkxnrF5Ha/htX3c2qzRU+UoCHQXaEc/JT/uTbHMDAOKBwrG6xbkegRIJHXnRCMXntbYoHzoBt+6Nh5m44jCC5KamrKn+lxIY0gelaDYZ3rqFy9UaJV0nHigUGhYAh3uT7bsfBQqjpkm2ZnDy7SyThsHVB8f57sClULQvFtkLM9tQZVdHaCvrP5lKU3weghdtm4zvUUmnkb4CdYkSkTgSGoRd8bA3yR0gvmgzN1UGNKYPJRg4Wmj7/WTnWS4ejAPw3vQaIpywbEpCZ8KyKfcITlrPybs2ABdSKRqLfmcXPDVwYzrxpbPL1Rp7SSyRWbaBowXmpsoM6YPyxXHcQWDGmVWG9EF52jQ4n06Tdy2imzZRjoYzHjcgESHMBlCOCugTFByLkUSKv26q626/1dtQXRZbBR1HwjHL4mxfavlPDR8vGmF03gQNLmRSjD8zScdV5hc0jlxxiKpKx/JqibS1rlfdBTviOXk+GbYUwJ4gbMnE0s1W9ACuKonGIoyaJqXNoWbQeOXoXXMZ7Yu9I21V42xfWO/iwnL9V9qoacKSGK/5DvfdoCvCf0xg5TY81yPw4yoRN8B9YajEAwUlIttz4b79+LVeWMpaD5GGKqnE9bYuWvXXGj5j9TqKL9ccNq9NYLVX0ZuCbtiG/afsb3jg6kHJp5kbAAAAAElFTkSuQmCC", "girino": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABEklEQVR4nO2UPw/BQBiHf/4MjE26E0kTBgsRi0FikY6+gI8iPolvYBSjwWLpqolErjubQRc1SIv3eu6oxOB9pl77a5+7970rwDAM8+/kdAG3VIvS7i/Oe+27JhR18vZomP5wvoy+MYm8qbzb76Hb7yXj9miorM47pK7gUR5LN6u1lAuEwMHzM7VDqgCVb1ZruOPBk3Q6myAQAgBgt+qZKqFsAXBfddPqIBAikTatzqc+Cal0tPexlCK2OwBAteEAAA6eL2VMWqM8BTrx47jacGC36lLW9aA9KcpNSD9IxQBwDENULrc10Lzp5lQG4klQ8TEMk+vKpZhI6EY0PRkvQ26pFp3KBUlM5Vn4+a+YYRiGuQJf23nW5sLspwAAAABJRU5ErkJggg==", "goblin": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAADlUlEQVR42u2WXUybZRTHf2/bF7qalhJSUiICg0x0uxGFbJFEo14WCc7s0qVqot4wpYuJWdAYYCRKVgVuIItz6aXboNH0eomkZmEk7ZINVgnjw48wsA7arCt9aR8vyvuE0iIf3njR/9WT8z7nOef/f845zwtFFFHEAdCh1osOtV78F/+dNuUgzv0hL5eu3MDgu83qeor+kJfg2AQAk0MBAFbXUwD4tQfKTv+0tw5z1yLXNufkN9N+gzvKSrh05QaxoV+YbyvnwxdfJTg2wa21FU7ZK+Xeis7WrM8wwqapxFSNis5WVo7+UfDsfSngMtVK6ZznXuGUvZJbaysARIeDuD5/C0DadESHgwCkvXXSZvQs5Khj2A/7gfAgA+FBHrY50LyTBHrH0byTnH/vbfpDXrlXV0IPrIm0DG7uWgRAFbmc90xAdwiOTeDr62a6w4oqFD67+5W06+x1BSo6W4kOBzF80yBZz7eVFzx/zxrQFMGFJk9Owdntqlz7e64D8LDNQXXgb1kDOnOjZ4GYU+G4P86jN2x55++pgE1TATjb3Sdtq+spAr3j+HuuMxAeBCBmSDL9poWJhRB3HswA0P6oiZgzq+CfX1RJQgdSwEdEOas1Cl9fN5++8DGxditpbx1Wi5nukx9wockDQMvpasRGls9UYIkqbAR6x8GpEHupnCpHYa57KnC557zY/K6Bi+ERBsKDtJyuxlZeAsDF8AiaSGO/+rwMriNyc0XWT9WW9EbPQl4RFlRg+q5f6nTuh28ZOvmJDAhwe+x3ml01PH7315zg8UQSq8Usz7nTfoRjP8Zzzt4+hArOgQ61Xjz1/bMAiA0DU4Elml01KKUZaVNKM6y5Z1AVI5aR56RvPJEkcjPbCY2vVVI5/7QcQDv7v+AVuEy1oj/kRWwYSLlnWf4ygi1jJvHRfRn8yL0K1twzlI2eQE9Ux5PVjFw//npx1+m3qwLve94Ry0M/oypGOUhUxYgm0lgwoSkCVSiUXD0mfbbf/VRgSa6P/5TIdodTwbYsCrLPq4HocBBVMeZtPmNqEJoi8hgDKKUZUu5Z1NHGgi3s/y3yr+M+JwFHWQmX/7qf53Btc055/ZkGoblnpG223QpAs6sGdbSReCJ5qCc6J4FCwXUcPfMyT05EZTG2bHWDLnuzq+ZQCez7f8BlqhU7+z2eSJLpmst9O7bqZ7c7P3QCu/3R2DQVHxFl+7f9Bi+iiCL+F/gHDe57OKSGFpAAAAAASUVORK5CYII=", "lanterna": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAACzklEQVR42u2Xz0tUURTHP+feZzlFxdgPF7VStNq1amG/aFUOUdAuiBZpbispsCBSAglyFkGLkFoERrQJHGLKVfSDFv0BZQqtTBAr+63m3HtaTPMcaxrfs5FadDbz7ntnzvf7vufcc8+D//aXTeI4N61dr2veLSNHAIDxijEOcYJa5U3NV56Ov44VM4jLOOOG5wK42d8m1mvceLEJHKBRnZg596x6+hmSRU8BoAdoxInBqket4r3Fqg8d4hIxcfIPSMuualZUefpOJ7nZXkO6dTVqlT2bhH6G5IdfZRVI2c2a+ZJm8lwXhy9NhAqEslhFnNCyqxqA6w+nIishUXLedzoJQHXneaY6u0r6Her5QNvOJeE6KgmZ7837P6YBOJI8UdJnR91siIFBxYkJiVx9MkPWvZAFE9hvG/Rme024Hn0fUN9zJi97YEqq8eDZZHjd++gbd3VQ/igFKbtZb7evDINffziFE4MxjhxB2Iy8txjjaN2eiAweeRckus7z4Nkk155Mhvvee0uVy3chcRIW5cjYNKlMN95IZRpRQA5VaM5eJJXzHKw5yZ0vl1EH8gNDFe6lOkhlutHAxOou8xLIESCSByms1YHYhXezWCkIyOVB7OxayiCKVJhAaL7MvaJnqotFgDIgJl98GpjKK5ArUSYhyE//lpxfvBooq8DPz0wFd0FxYClVaL6EOr7SNTDj58o742fBTXR1FqTAcitk959lY+MK6nvO4H1+P6oryvnSPAv3fJSBjiuMjE0TRJRh3tMw8ylNtrmDkbFpAO4Pe/Y2lBbu8StlR51wf9jTuj0R6TQsq0CVczDj2b01QeLCRXq3nOTS0XW/9R8YHGdD7VJaays4Ee2TTQpw69Qq2i5P0Hs8Wda/cGiJkz8fSAp19fLYNjpvjPP1GxQm4sJpZ/yvVZfaqPS9/RzpGyFW3yoeya36krPhL98N/+1ft+9CkC36zbVacwAAAABJRU5ErkJggg==", "legno": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAA3UlEQVR4nO2WsQrCMBCG/8oNroI41cVV8BEU+hji4/kcgg/h4uBUOkixUDoUl7prcuTwclnyr7n8+SF3yVfs18up2q6QSgQAr35MFmAmKW6Ht3qtKEAM5QAExLnb0FoCgLpLNwV0OmzUzM7XB6R+1LSDWgAAkPo5m/De9MEG/9Ymn4IcoDjuyknLrO5GlIu5aA9pvwFSP/KxwOX2hAUnEMcCFpwQ3ISx/ovkU5ADEHdf32sx+oB9Byw4QZUHfOI4QZ0HfPKd89OElizgDGCtHECVB3ziOEGdB7gQLn0ADF1tQ3PdiHkAAAAASUVORK5CYII=", "marco": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAADXUlEQVR42u2WT2gTWRzHP2+mmWDcbildKxHZy4a9Vdbk4KVhQSSiBEKXFaT0sgsLhSVpevI6Ij14UuOlsKAIUUGhEhCCEbyoLCu2hXq1C2ogYHFDd2NDJ5l5Hp4z7TSapIns7sEvDLz5zbz3+/7+P/iM/xiin83xwTG5/f3hP8/Ev0IgEYrKut4gv3+vT/7LqwYApc1F8UkJJEJRWfzzLADl8bm2/z6TTQDOv97syiNaR+XBmFK+XqU8Pse1muNZ2g5nRoMtIdq1BxKhqPztgOFz8ZWjIwBkilUuRPSPesBFcvWp6MsDPuiS8NU0ALWg06J4p/KXuk0yeLitFwY66bxW21Jk2JLKT5fVGodfX20yfVD/4L6Xut2VTW0JlDaWBHZMFl+YSrBe9b4VAHt1DYAfJvJYusDQBEZN49i3Tb62FTFLd3rPgfjgmByyFMeFO1O+b6cnbyoFTUnhuemRO3UkR60uQZdkwhq5smxblh2T0LDfhzCgUVicASAVu6RkDee9lYLicpbUoQstZ9zdXO4vCS009WyrvPn4yNZ7QOPK9195a/cprMxSWJklEYrK3gnYAjf+BluxHE0fp/jCxNIFhcUZwhdVeAqLMxgDAhoO9uoalWweQxP0VQWsVymuzPir8Zt9Sr6c9ckr2bwisjJLJZsnfHEK69ClPjqhLnfVJkbTx7Ga/j1GoM9WzNCwz7riyZy33onTkzdVCMALy7qw+htG7iBKRUzv8O24/UeGU0dy/sRtSqwG1A2r40Aa6Ma1qYjplSBDw6rmh4ZJRcwP/r9wa5LkxI2upmFXBNx63+n6wnPTa82u5btFRwKljSXh1vL0wzdeubnI/P6XUl63IaCxcGvSS+D44Jjs5IWuLyRfGP58dRV6HgpozMdHmH6whoUGumT8ywHuv623DUXXV6dk8LA09uitBBoOC3emeH35Hj8/eIOB45uQS281nlQbH23JHUOQCMak6vcS6nZLsgEkJ26ocBwUgH88R/c6PPpb9JYDKvZqqp14bJKKmMzHR7ymA5D88TrokAm3tpRcxek9CRPBmMyEW5mHr6aZ++4c0bQaxzsVz5dtLwdKG0u9lWEiFPUp3367SUVMpve3npsrqzsAuqC08Wmu5TIRinY+wRZdW/sZ/0u8A4GVX6/f0AhgAAAAAElFTkSuQmCC", "masso": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAADEElEQVR42u1W3UtTYRj/vefMDyaWuS5kXojdyTAOzRoqqQh5FaYUs9mFV96001WM6B/IZBhBW17VVbZaQiQIGSRLY3MotpIpSBIDHV1kTivx6+zt4nje7WxnuvVBF+0HY9v79Xue3/M87/sAeeTxv4Nku7BOX0kzzc1srpC/ZsCZYiN98uFx2vjUQoz9LuIp+i/ZsVcMzMai5I8aMPzATU+dNQEAgvNr4PZ3SClbi3hZoD6rmJMiJBvvg/NrbKxgNQrpuDHNgGTwkI3p77Efqgh30GScIyriQt3+OAUIpaqPooKihAQC3dbhCuiylWrXYAQnAePjM5geHQO3Q+DwuHC65hiswhW2zuFxMRWqWhoQnwjQgxI1kwG0Tl8Jb2iIHe7wuCCBoNl6ISH1lyjeLSZInTaRzTltIqqb6lHdVI+Iz59bDiixn1qIgQeF0ybC3NmGVms74hTgiBwGJSR7kvw90GVHVUsDO6cito7PZUcBAJ8mApoqaOZActnFqezh9OiYTNItwmkTGfkrzwicNhFv++4DAMoNpWxvc29HgihOs1Mg2XsluTgiJ9Udmx03vS7msZJszwcfIeLzwyKYEAyFVSokQ0sFLvW2U8qOUAqOyDIPdNnxxvsCDo9MLoFkLEOLYELE50fE50e5oRQVsfUDVdAMQcFqVK53EOxJwPWnbrRa2+G0idDxiVqPUyDQ5wYAldcWwYSaRjMKl5YRDIXZuJYyaQbMToaxazBi12BkEiveKh4QKpNTolYhmezIjy2VIpneFC7lUcHta7dACVEdTihFf48dN4bdKsK7XVfTPEz+r+BEWWnWNyGZ2VwhRTwFj8Qt53s2Am5HDkefVQRHgJf3HsIimNI8TMVGSbEcstCc5supeRFdPN9J6vSV1NzZhsKlZZzr7cDX1W8YHhyCNzSEyye7YRFM7PDDyCWhFnxoDp8mArk/RoqEklDLxiM+P2oazaq12+FFSEItK0eF/P3rSej0JRn7hpwaEi4u3++K5IoR2+FFfNz4/kvNSc6djFZn9DsdUR555PHP8RMA+FtXVqJ+fQAAAABJRU5ErkJggg==", "master": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAEkElEQVR42u2XXUxURxiGn3PObkIUF3HjJiZW2xqkofVqs2gasRc2aW8aYqNWCKkuQcE2aW1r/akr1boUf6CgabSoXfyLWCWxCdfFBBtjNVw00Y0LQv27EkFZJSEs53y9OOxsVhZckKS9cJK52NmZeWfe+b73ew+8av9x0yYyucTtk4nMd1oajY+vjYvhSGcjf3a+DJom9ZWL6A/fI9D0mGBR9rhr7obtszZefnkGpKv8fbXp2cgzinMzmZ+nUX3xacoFZswGD6x2ARA8Hx2TCf1F6IUeLwBZefM4fcMGPBt5RlbePMyYJPVB08KMCTHd7sHz0amJgSKXV07dqUMsEzQLREfTDcQcBqD9QT++afZrVhQE2b5ihlo73u3TjgHDqdvgkAC3TNA0EElJ//fN/WQYuoqhsQ7hSOMJxBy0KM3dQmNnLWKZ6jDlOVsZNE0Mp47T0jh2dSeG08bZvTJL7RFoesxLMwAoytFskJguGLrOiSuVau4vlwOsX7KHmJ5gpinark1aKAo9Xrk20C3XBrql0OOVoZ5WGepplSJX8rg/O1+GIy0yHGkRf3a+Pa/3D/Fn50uZZ7FMmoEZpn37o28U0Xyrjk9f/2rUnB3/XODQvE9Yv2RPIr36Bmgrq6fhdjWlC7dNXipL3L6kmxa5vCkZiI+3FixXLPiz86XI5ZUpSUOAk10H1Psjwmdvb2fQtDhxpRJr1nT+/LgKgGXHN2HNmg6axto3N79cDADE+tpkqKdVyjyLZejRJRl6dCnxziO/WwuWqz4caVEsTYkQlbh9EurYC6LbQgRgJZZqhoPLhbtZdnwTAOve/YEzvdfT2jutNDRjtvqV5m4Z9V/o1j7EMhX4RFtaB2iKtmsZOVsl1Lmf+zuqVGFaejEAIrTff5IkxXEFnBI/UOjxyoWbB1i74NtEED4nv3rfAADrl+zBcGqYMaHPaTIbB8cf/qVN+gBxH3D6+i4FsKF1OzltLQB0LvuIXz/YS3Fuplpz+sZTjl3dyd2fDqpiBDChWlDi9kmcxuDqhPE4sOsdZk5zUFF10wZt/jkJPBSOEurYx93Ajwo87glizT5JFZh6qpzfvTIrqaRa7kwqCoK4ikuw3Jn0MKxuG/cIoXCUUGR/UhmOgwOU5rnwZ+fLuAco9Hjleav1WtUOAA7frKb0ra0gwmwchMJRNj44x8YH5zgYeaLEqXzhNh5WfE5Dx96karj09+9ouF09ylc6Uul+vJ7XVy5KyvXGzlr8Od+QYeh8ce+3pFpQN2cV5Qu3cbSrxi7XknBEJ7tr0DTjxWl4pve6RrNPnJZGhlNn5ocroPcZljsTsUw03aCxs5YNCzYn60TH3xhOnYbIPjVvw4LNGE6Nw2GbCbFMSnO3jBIoPZWVDqx2qRiw3IkgixuRo1011M1ZpcYPvReksbM2wVZPP8eu7mTQtGzljKtnOqY0pgvzv/6S6otPaSurT87ZESsmlsnJ7hqOzF3DkblrOHWnTpkVTTeUHCv5HlHRVFmgjfXxkWHoFOdmEgpHx5TnuFNKkuwRB2XGLDIMQ1k29cSv2v+t/QtQ9WHekPM4gQAAAABJRU5ErkJggg==", "moneta": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAADd0lEQVR42u2Xz2tbRxDHP/t2XxSwb/0brD/JBERwICES5FIfLPriOIj6Z+XeikPU2sihTSk5518JjlJ6aC899daA7be7k8PqrZ70JEtWC+0hAwJpJe3MfOc735kHn+0/NrXMn9ZNXSbPUoTX9tdb32eWcfrLx914bl90UFyHD1trkg9zemM/qH8lgHVTlxThx5LTSRPuAHB+HAK5OPUwCP+bh4pazPle5bv7K8/i+5pK6B3moBXiNGiN4pqNTbBG34iGmgd5Ge7CaU0lnP799djvH60+j+97XYs4jfOw8fRmfswMoGHWpJz5vZWdSv3LPCjsweY1d1PDy24CzqG0o7E1GwU1K/uyo0erzysZF46tc+MXetCpprmTA/B9x2O9YePpdGIm80h4f+XZws4BJAHrHL3dlOtLhegaOrkFCcvZP/xim7O/9hdyPIkCBCRabU+va8EJja9MBYVKbMbOvtx9l42Lj3akejoKAC53nOwLNtdRrG4swbqpy09XB1Od2xcdBBOI5YOAbGyGV6pHZ0VQkgQETGJ5sq1AK86PfUVFZ1bn3spOhL9geStTKO1CTbXmrKt59a3wYCuJdW62DTiJCEihdU7i+dwA/B+/T2A/grnZNqgJ2GsqQWlHKxuWVy8+EqYH8LbPqlIj0hGYfbIvMYhW28esr8TzeCf8vneYI05HIo5Ltll+GBWsBs/LQ4lyK9ToH4NyVzwe6pHz5TazQMpFX4AcSG8OoIBfai7UvtxyzgGK9/18eBnA5cjZlQYtSKkVZU6OapoE948D21uZoneYY324RCfQ7PiRs2GgZevtprg8nJnE0sxSvqyHKbk3SCs6UAlPrI9ZX+YWtEIPYXUeep1QeKUtwh2UyxFdqxBWJ0uS0JowTgHOuppm22BLFxaB2FxjXWizImOXu1h/56GZpSGJ2+4D66Yurw6I/V7IaTFiy2pXlt5y5q1MRegBjt4l/Mxv6lbj+PRAoZPA5GYW2HuyL5jEkmNmOgbGnE+r/VwlzFE8bAdorTdh4wGebCsu+kKKxSQWnYBJHe/7Oa1MITU35vwfbcXFStY/UihsbKk/BynZD5fcTUccnuZ0b5DO3ZbnambDjDbd10chCOeJpUGrsISW7JuBYdHteGHRbpi1OEnOj8Z7P6hccFzYos8ISz+YFLNdrI/tu+izwGf7X9knSx3Ba1ALwhAAAAAASUVORK5CYII=", "muro": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABx0lEQVR4nM1XsU7DMBB9jbJZ+QQPUZeysDAhpG7wCUyI7+A7WdqlypAOWZHlGaYLl8vZ54QCfVtjv7tn997lsnl9fvvECgzDGafugIf7xzX0kV8DQAgfAIAYAwDAuWZRMOITvG/R991sX4xhFrviP5xrkslJHCXI7aHknEPxJarZEwFKxsnydPLmNI4UkxQQY5hs7vtu9kxCnowL1MSoAmIM8L6d/A2UdLe7XVwXlFirBY7N0/5llQsA4NQdsG1v1tJx6g7YbP3dagGXQJ3y8aV8bvFr6WEN2h7uac3fFp9g2jAFnnBpgZoCUo0m9ZwjZ1dapzjet1MbElLWSbVXDquTOteMcfq++xbwk2vUhEik4tcWcRjOxcm1WBb/evuAhV+ZB9aihJ/qFRUt5lBiv1ziXKOqAL1CKWmMYbRNqRC+LzfkjAI0aJ63Xq3aK9i63YkA7YQlUw2taQKda7I3V3OfHo/vWbWaCM5PCczFvd4+8OfzQM4qS/qEFkfj07dDlSJpgS3QUJtbJ1DBqn1AVq0mUKtsGuFT4MVI/CoViEM7laxs69uB4sheUfPPKOtv4GS5t3SekIebzAPW+7ykT+T4Gv69D3wBCsJGvvjwp0sAAAAASUVORK5CYII=", "ninfea": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABrElEQVR4nO2WMUvDQBiGX1tHh4KgS0OplJZWcKwQKF06iYP0B4hQ/AX+i4J06eLg0MX/IQUHt7ZorRRDKJRaEIqUpkuJgyReLndfLhFxyTvlwnd53ve7uyRArFix/llbKkWanrPZ8eRhLJzH1wXVA8C2CrjSyHvudwGbf6im52ynrlNqeuoPrs589Y4SFLzSyPvgQeqUmkgWM+7YGhh4umhJuyM0wKZhlS1XkS1XSQPJYgaboenCg+QzQMEdnd9cehKxczZDE9bAgDUwkDxsYdobYdoboVBLC7vg2QMiOJ/YeLwnE7GpJ3cnAICX8RuwCxRqaYDbP+QmDAMGgLm5Qh3XaH+c/oABtI+fpXNcJ7L0FLh7+wrATaakRX+J9/nCPZpkB1RShwGLpLwEvObm6lfgyAZYcKGWJgFB8FAGRIkX/SVSRzuRwMoGZK1m4c61CvgzsfaMpe9zCi4zpAK2ZmsEvgf+AiyT7wul6Tlb5VxHaTefXmggyEQUsAwuNSAzEbXdMjhpwDEBAPt7KRIsg1uz73vUH1HoXzLejGidHVHgUAZkZkRSgcaKxeoL3QboLVNjBkIAAAAASUVORK5CYII=", "ossa": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAACnElEQVR42u2Wv09TURTHP+e+SvxBoq04keDk5sIAikw6dWJy8g8waJrIRIwDAdMY49BAJEb9B0yIExOJcTIBCoOTiQlhYJA46HtIGiBN7zkOlzYgUKE8WeQsry/pu9/v/X7P+d4Lp/W/l6S5WIGc1X9PEsuJEtC1GQNQH5Z0zvEwe5fX/GqK4dIAHyJr6gVzHbjIcM6hqof61qXm5ZnLmI9Rc2AGTnYRPOi7TGoEajGKEYkDDI1XgzXJBwN4Wp61anWTjoHn8k8UUAubVMIzk+vkZTyFqjbsGB14u6tRUyMwTiIbi/NE9Z6W8IychZ6IjPbePp7NPEq/Bwrk7Mf0Y7vQ0weAmTVU8BqIqBcqC3Pp90CBnI1O3w/AGGZhrh2gYogB6nBO0s+BQS5acfoBANn+O6gYEUItWWVraQWAs9euArD+5Sttbed4kp/YE1AtKVDs7rLBsXsAXOq/jQg4ExRja2mFkfw4NaTh+UHgLSlQIGc1PK+S92CGCqDGxuI8AMP5EhkiJoml2N1l3z9XmkazHBW8vqv23j7UQupVyrMAjOTHGSc50pqZo3heWi6RyXXiTbfZyy7wVirTTObwh4gMRimZwpviTYmcgTl88q0BvoX+9eA5FIEhsvZiuUR05TriEyrlWdpv3EIxRAQzA4v27LwV8D09METWSmvvMNeB+TiAAWLheA0vnsp8eRf4UX1vboE6VH9uJ6rgRPEqqCpOBIhSA983iisLc4hBhOAQvEpQIApqxJ8+MpwvUUOODb7vGO4cNYDzPTdxInhC0iGh81sZuUNZMEks5CcaR2aNUiN06uDV6mZq98h9x3BnahXImariEHC+Ea0neitenxlrKFKtblIceJOK/IcmUL/F1MPpOHN/Wqf1Z/0Gz0o21Bm/NjYAAAAASUVORK5CYII=", "patatine": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABg0lEQVR4nO2WsU7DMBCG/zSAMmVAQUwwhKFIwMLGhsSCMpSJJ0AsfSDegw4VbN3YWAqoHYgQTIgIiapDRVWFAWw59tmOoTRLvul6Od//++xKBmpqairGc12QBHHO4u4k9XS5uRkQmwPA5d0xj092r8iciwljYRLEudic8fk6AACM0iaiA0/JnZ1f81qbGe1HUVxsHsZDjNImABTE5RzDNhGrAaq5H7UAALOso92ZPBGdCTIpj96PWlox6jgAILv5vjphPAQAnB49kSaUhElcFqOmIx+XCGWi8EN36VhjnZgIqxHFWQ6AchxLpBrByvo2Qgx+hPV17JKKoia4kySI84vDvcLH1f2dsv6svN/e87jd6/MpGCcgLgKA55c3q9DDx9jJWIMF3UnqtXt9p8W/oZONC3egYSp2xXX3igHbFDY31txdCci7VwxUgWLgv+4CtXvSwKIhDcx7Crrdaw0sEmcDf/0nyFhfRCzemvrOzR+XZwDMr6LSbzf5bVgG1wdqTSV8Aert2ya8JDVGAAAAAElFTkSuQmCC", "pavimento": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABp0lEQVR4nN2WTUvEMBCGZ5de2lsLhdaC4IIg6N27R3+Gf1tQL6UtLbsH3cabHiQhTSeZzNSLvrfm85lMpnl3jw9PXyDQOA0wTG9wd3MvmW7mJwAAH+d30SJaW+bvsca6alZtSs3kYjFjggB6465vF99KzZCmGblYzJggwMvr86JTg0gWFgGkaQbH02i+fUeKpQhrYwMAABR5aSDSNEMh9MlQbTGA6CXUcnMvjRLgJ71YMCiAPgU391SUIfnukQFw6Yq8ZG9ClSGW0r3dGZJ9/L6NYqrlcHWNA1Dq+tZsjG0U+xNy04gCSCL0VQzA+vLa41AAKkJfNfgA3ajtcck4DegkTBrC/mNy5mPaXV7cip7j31Ky9T3/n35gi+qqYfkCFoDtD3zq+pb1fAcB3HKT+oMQsBdAqdn7+HCtVwjYC0D99Xw6nkbjJ2JAVwDYpNCv1FWRl+Y5V59nHkBdNWh0dipCBtUGs0GiAdycY5FyUqPUDEVe8i6hfdzYglRe7f6YalkBdH27qHd3Qer4sX5RFbgbUoaUY1JIPyCx3bFQbjvLD2D6837gG4nu+IoNVyplAAAAAElFTkSuQmCC", "porta": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAAoCAYAAACM/rhtAAABvElEQVR4nO2Xv2rDMBDGP5dAG9o1YISHTIFAhlKC8NBHKJ37AKF07JolQ5a8RB6gc+kjdCgmlA6FQqYMxhjyEO5QZCRZku34T23QBxliyXc/3+lOkgODyGiSzKYUADCf3wpjYXhQvuN5Y+VzeX4chwCA758A0XHv6BgGeXAyGA/CnFLqK+dEUayEAwDX9fi/iQ5SCcjgJCPiHOKCEBcAsFwtlHM26206Nwg+MuOeN+YjroTMPODTygDltBHiaqF02qy3AiRvc7d7B6BO95nOIB89liIWtbJwwF+UKfVBqZ/5YN0yygCaUpuXzqKQvC0ZcjalIKNJogUs6qCKytpIAU3Ro9SvBY5puVoUjmImgqyy2DqpG04FGYaH9CfLmGJd061TuobPNADym3Kb4pZYEh33jjGCp7aUomKtx6RSVfwf6jyg9rDQpuRiZCcdoAcRtIBV1XlAoUhe316EwafH51YgZL+EOw8IgDfX5qbZlGS/torrlAWsKqFIPr/Eq2HeSaMuyX61VXx/95B5eXh+2RCW3i+7hgI9SLEFrKrOA9q9uIjsXtykLGBV9X8vbkOmvTj34n4xvKqfqIR+AQ1BnFtCz2/YAAAAAElFTkSuQmCC", "pozione": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAACrklEQVR42u2X30sUURTHP3dmVxaVXMt9kN7WJTBEwgfB8u8I3zJQaSWESFQWeuqHsSpChYbrS28S/RE9WMFiIFb4YJpEYKC5W9vGsjNzbw/rDO6YOftD68EDA7P3zJ3zvd9zznfOwqn9YxPlbuzzR5TfkOiaoG2slxsP7pT1Ll85m57G7ir32jARNcnHkkFo1aBx8+UHcprixBhwm/l6iUCZ2RTl5N69FjSgbmWRb5eu8ESui2NnYDLz3Lmf3wmT2c0BYEl1Ml3Q54+ooFG4t3MfkIITKcI+f0Ql0nOIzWX0L++o+/yetrHeQ9NTdQABqxBD+PSi9TySoFFox2MDECWsHmcSjGx3HvBdjF0vqws8A7iptaiZ7DxTqQ7n9Grv+jQ4DEAkds0RpaoCiBJWOV0wst1JZjeHMi2UaRFrWiXWtIqJckDUrSySRXoGoXk9eePaMvFQktzZBgDioSQNVprxnVZ8e820Nnib5oUE9Zsrzt6qMPBdDxIPJRlNdSFNi3go6ayrIlEpAGmZmyaPJCBFZQzYRTe+0/pX0bBrAWB94JZTlDlNMURYla2Ehl9zAoylulCA9BVjtvZxoLsgah6U0VMKlGlhooqCATRYaXwI9L3L7ZdahSmoNeQB0dERjKa6mEp1APCw8Q0WCgFopnSe2+rp98SA8NKC47kX3P96oYh+N90CkKZFy9w0AEsTz6g1JI/YEFVTQs2URXTbeqDMAvl28K2efoIG1Hh4/ZFPzLIh7gWuOq1nB9xPN0B4ZtIJnmq/XPhse/g6epoH0n7oDw5w/u3iH/3NCwkneLa9+3jmgSHCSmqCc8uv+HWmntofPx2f/Tvb3k0eSQ2a59mgpAEiSljZ2nBYxwBHFl5FE9EwEZWnEMwA/Pt8pZy84j8mUZfEzpZw6lP7r+w3jh4U2621yS4AAAAASUVORK5CYII=", "ragnatela": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAD70lEQVR42u1WX2hbZRT/3XYkHSspbeK1rS0yHFxRUzLhgnmoL5OK/yHGIoONQGXimNAX8UGyoVBfRkREtrwIgaGMIX0odA9lIcMNSgi4aXIFb4aYa0J2711v2fVuy70hOz6E7yN16WjiFB964HL/f+ec3/md8/uAXdu1/8hiwTB1ey70u2BCjJDdaiEwOAgAyBjXt13Lc3Xy+R8X/nEWcUmmpdkFqtU1SidTtDS7QFpFbR9qmTxXJ8/VKSFGCAAc26BHBqFjGxSXZKrVNUqIkS1HPpsjz9XJsQ3SKirV6hptB3nfcNfqGnmuTppaJk0tk2VWuePOzNm5pBSppBR7C8Jz9Qd+qNU1sswqzywuyXzxuCRTXJIpn81RXJIpIUZ4gJpaJsc26HRI6h2JpdkFSogRiksyObbBYbfMKq81u04nU2SZVWIlsswqR8CxDSopRc6JbjbQ7eEnV74RMsZ1YXizCc/10PrTbfNg8x7sZgOO3YRz9y7GxkewdiaD955+Bb//oWN4s9lO4KcVTIqjOHFgDqNjI3j2/r3++tYyqxQLholxYGl2gfLZHOdDQoxQLBimWDBMmlqmuCRTOpni32gVlWLBMEewm58920ITGuLnrwuruH2nAQCYeuYpfPjcawCAueMJvHrkTVw8twL4CZnCKpSCgonpKf5NVGgjaLdaOy8BAHyx9i3KP5dx/1YDSkHBpnUbH136HHv3DODL9WUEBgdx6cL5tnMAJ+V57vziuRV8fOErDISGoAzshd1s9F4CxnpNLVNJKZLn6rwLHNughBihdDLFW48NKDYLOrulpBRJq6jUEwJwBYzsG8L4kwFMiqNw7CYy858iU1jF0f2HOKQvvH8Eh2de5+gc3X8IAHBQnOFLBYb9WHz+7d4QSCdTfNxaZpVKSpFqdY3y2RxHgJHUc3XejmxIMaRKSpFOh6Te54FWUTn0jP0lpcgZbplVDrllVrcEw/QhLsnkuTrFguFtAxAeFgAA2I6LSXEUPr8PnuvhbOwU3kov4ur5Nbxx/B08NuYHAJiWi5bXAFwBdrOBOzdv4drlH7F2JoOo4OGD367gxIG5h6rmA3NAq6jkuTrPnN0zuFnfd47kfDbHM44Fw7SIwJYZEJdk2hEJlzeKgu24ODb9MgLDfuwbD6F+o4ZrV38BAJyNncJBcQYbl9v3L82/CwCYmJ4CAKyTD1HBwxOhiS0z4PtfC8KO1K9TjFhmnYrYOetZ9p1KyIjXlxj9fRPC1JARjMHOetyxjX/HeaflszneZkwnGD/YpqQf50KvAvXZD991fXfyxcOICh6v//JGUXjkAXTblEYFD+vk48K1I5Lt2q79n+wvCJV1Iihu15gAAAAASUVORK5CYII=", "ragno": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAADI0lEQVR42u2Vz2sbVxDHP09aaXFU72J3cVpna8uttm4KMjTr0EOw62Iw9BRqcAshqg++5l/osX9GD8UhSV0o9FooBB3Sg/sD0lDXSEaKMI4oToSkdV1L8k4PGy3+LcUp7UXf25s3M2/mzcx3oIceevifoTopJIcH5O0tE4DvKapunM6RFICcUaFQq55pE+nkrLhVUYVEhbLb6iqjtG6JpbUoJDo/firGDFMc3ZSZzKQ4CVMOyjvZzmQmQx1HN2VqyT3k44VwQ7NlwrUlrVsCMLXkdh3AhGtLNwF3hQnXlnY2B+VTS668n0kfkjm6KWndkuTwgLxUE86RFEtrcae1qRavXpH7jzYw/BgXPnkdc7lOI2Oxyx4AfejEl7cpuy3k0d94ejOs/xxJOat51Un1txdSNBoN3vkjRnZ9I3Q2k5mUpytFvFiDoY9HQ5t4PM7m1zkcb5CCXiG3F+hPuLYA9L07EOoUvJo6NYAbmi0/Xqgf6t7k8IC88dGblG/nye1V1ZhhirYPrSgMXR9h9/cK9VydtqxQqyonYcrg/AjPvi2R2wl8tWV/rTzht71tdWIATsKUtsHRur52M8XmN3n8JkSigiaKS/MO+3GhfC8PQEsJ9qcOwInZtn/x/vJPqmsiAhjtM+XxblWldUu8WAN/PzCLxJ4r+ML05RTZ9Q3whYJXU22bl2bCxatXJLuWR4xoYOD5+E1Y/HwWgOxaienLI9z94gcAmmbAbaq2T/+4wcOfN8/PhDOZSXnwcIOCV1PFrYr64NIY9kIqvM+ulXj8XS48D86P8NmtDwP29Gqqvl7ryB3qLDYcve7QrteYYcr0+Fs0f/2T1WgdtKDp7IUUpTt5rjX72W5pPNE9vFgjrP/Ukit9Xz49dY+c/gO+MHy3HB7thRRfrf6iAJqvRmj4wRQAXGv282BoB0sL9sXBES3fy5MzKi9egv5xg9h7Q+E52ggSWI3WuThrA/BspUT5djABF2dttlvaMT+5naqSVyLno9+jI3qQG44umDbvp3Xr2N1ZtKydZzcUtyrH6nnu1dstul2pad0SR/+XtmAPPfTwX+AfAfFZusTSlA8AAAAASUVORK5CYII=", "rete": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAD1ElEQVR42u2WT0ybdRjHP2/n+xZaxgQifzQdjJSZMcguNp2ZIxCQA7KeepgHBpzaw7bDUpI1O9hoOjVrTIDEUC+26cHFNLoZxEQZMrcoBD0g+yNUJ1szOlDAYQvt+0pfD7g3YxSBJcZLv7c3v9/z7/t8n9/zQhZZZPE/Q3gaIzvVqoxMT7gZgNP2LwFIi2n6lTvCf5KADbPaE25GMkjMjscQC3O0s5++naO2oRQAvSCAce2swv7+lv5126l2MtCpXrx9hsXIPM6WfrzuCfJydpFXZCSvyIgpV0Gfl8vu4j242q+Qiq8Qn08wGehUbZjVp2agVaxUP/7RxUT3J3j7pukJNzM7OIVUXoTXPfHPrQQyImkxzVtvWjCUGTBZLURHx5j4+gEtZ48RHR3jxY4PhR0nMBnoVJVUGo9jDF/wMIszCbzuERxtVQD0hqY51VaxzsYfmsHjtwAg6nXo83KRDBKnWz4lzF1h2y1oFStVk3XNkTdgJZ5cxeuewNFWRb4R/KEIEgq9oWn8oQgAZa+8gIxM7Pp9AJRUGpf9cxaii/iCjTtrgQ2zevH2GaKjY+gFgXhyldj1+/hDEY2BTKhq2ktk8B7+0AzegBUllUbU61BSaWocwQ3xntnMkYTCnW9GEfU6XO0j+ML17G00cVwn4g/eJcytzMmH4Ku2JtUXricVX8HjGFtLZCGJnWr1SbtNW+Dx1+NxDGOyWvAGrLjswwC8dGzfoytq5qkpVw++XkPxwRr6zn5Hz0AzSiqN1z0CJLbfAjvlqi/8Gt0nh3C+8zImq4UTB97FF2wknlyl0FSA/NsS0nP5/Dn3UBObvCzTfXKIXx78Rd9AK7PjMQB+vzUPwEOdiD34hbCNBKrVRwI81zGEx18PQGWdlbmbN5AMEs6Wfq1dSXEXAB9ctvHsvv1MXroKwBvuHzjVVqFppzc0zWf8LGTUwKizSZXKiwAoOVSGvCwTn0/gCzaSUlW6Oq7RN1CAZJBYiC5y3n8EgEJTgeZjdjzGQnRRG9fHxzTfuMUU2DCrFwJHuXclSr4RSpr2k4qvoBcEvh+KUdtQyu7iPThb+pGQ6HI+v87ZUmL9ewAgIyOhaJPzamhQ2FIDNsxqWkyjU3ScaK+itqEUk9XC8QPvcSFwFCWVRllIaiy57MNaoMchIyKh0OWsYinBBvq3vYxsmNXz/iNU1ln549cpAI2FzeAL1yMZJG5+dEN7NZ8MvqNt2CpWqjnKKufePoxYmENlnZXJS1cpOVS2vuplmcjlKe27NzT9r2taeNofCRtmdY3yjcqSkTNWm0UWWWSRCX8DOEqHYqw1vzEAAAAASUVORK5CYII=", "retino": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAACvklEQVR42u1Xv0/UUBz/vF5bS4L4Y7jpYhiOht2/wpvwEr2aiJIwOHgxJDLpgAw4KDHGMLCYKGiEMzFVL6QTI5uLDBgkTiYGBtDzLn2vr69fh96VsMCVFIyG7/Ka1/Z9v9/P5/P9flvgxP51K5tFksIlKVwCQGWzSGneZ4d17BgDFDDC4vbMnv2IcVw+W8WS/N7V2dphnJeMAs03HwMAKuergB4CegjKcVwq3gIASF5PjUbXzqVwSTY9CnyXymaRAt+lMFihwHcp8F1SwiMHNknhkgObMqPAgU3z4hE0WFARR06zEFEIhDqGe+9gnj9BpMLk+WvnxrHwaxpmzxDLJIDAd4m1SWMsj6u9N7DYeIpIhWAa4JwZByeOD60aAEDJLWg6YJwaYpnAL3mdHGMggV7yOgW+S44xQKLlkuR1Eq3de53n99OCniqCUG9nr6PWnEOktkAR8Kr1EhRtxwfqFl58eoipC1V8/qkfiHGqKogYR8AIGtNBQWOXR2ogUiEqfWO4crqKHtvE/W+z4MTBiWdXAZLXqWQUEuWLVgy/El6yF/gxFY3VGinhkRQulYwCZSLCklGg980ZgHRU+sbw9vdMXAVteigXZ8s3AvTYJvz1eN1PhKkosJiFKAQqfWN4szMNFfE9ZceUBQAYuXgPjOWTNVNzYCfq7jQfJbyEjrJZJNn0kvlwJN0wKbO2AyU8UsKjklGgMFiJnbeDzHwYObBpYjRmbvJ5hNfiWawDFoIiQMvlcd0cwQLWuzpbPywKt5d2sIxNttV/c0+Wyz82GY7K1kYHaW10MFNetTTQd67fBRuZZamn4X3xI4/ba4aWqg982TEyzb4rBMpmkSaG4zgX5NfMBXYgAlPDcYx355rH/8XrwKbGao0e5Pvp2J2XjAJ1yq6bjpY5BRaLB8vknEID/t/56dhvjp/Yf2N/AM9pnfcmHOxwAAAAAElFTkSuQmCC", "sacco": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAADJUlEQVR42u2XTUgVURTHf/fOJFmBjyBKFyZW0uIhbQKJdn1AQYtESIQWgVAU0QfUxmpVG4U+UClBchFEixCsVVEuSzHqpWGiKdrHWETx7MMnvpl7W7w343vqG9+818ems5o5c+ee//nf8z9nBv7bPzaRz8v1VGj3up1h8UcBuMHaoo10H2lh28ntac/tWIxzOztpdkbEHwPQFm307meGIizfvMW7tmMx3j8ZBeBKQ3/WrARCe9zYpK9+aWJmKIIsCqGmomkM4CimJ3/w9e1nrjT0ZwXADAIg5mTeT8VtAJavXcFq1lBoaHCW3lMGAdDOsDgcOgvA85YHnj9yqxcAq2+CC3vuUXzwusi2FsxcKvdE1W2aHu4jcquXUMlKAM7svp+TsGQuAAoNzbObL5n+EscaiHLnxhsO1JZSaGjaGRap8vytRVhPhb7WU+exsJgdqC1l151H4rcCcDNqfn0UNRVl9tt3rL4JynaEvfMP11Ty6m4/Ha2jHkvZ1IEZJDjAt5FPAJTtCHtrwvvDCKXZXB3mUMq7za0j+TFQT4V2AxcUl3n+2clx1FQ0oX0ARyGEQGuNEIKBzgEAyqvKOH/wsW8/kNn0+fnBAWRRCKGSSwyJlokYWs/V31jPeH4quNZTlxbcl0o1FzhcU+nJ89CxDfipQvpJTRaF0nxu9gCzHycTLVgphNIeA+6R5NUHXMSLUQ8wbX3AVgqtNaaco98WieMAWF26Ji2Z48YmHYiBi4+qmRmKLJq5mdxKCOFRbyuVln1BySrKqxIJ1B7ZmHGO+MrQjsX48eIpBeuKiVsWcRLBTENiOgptiGRAwbKkoLQhUHE76xbrDyCZlW19WOA3U+RHSgG6DAx2DeY3C9yPC5nc0NRgypTlhkzITycK0JWfUirQXPFlYBkCxwUhpceIKWVapdtKgQDpOAQ136N61zOGYRheZi4b9rwspTP3LBP9hYYO1orrqdCnLlUu8JdsXb9kVvMBdLSOZmzHvgy4H5epZvVNLLrW6ptgsGswUPZZjeNMTMy3qPVzga+jdXTJsbwkgO7Te/Xty29y+nHJ9Wflv/1V+wUj3mrOnUuVRAAAAABJRU5ErkJggg==", "sale": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAEX0lEQVR42u2WX0hbZxjGfzl6TK31+AeiTLATVpBKi3Zl7W6mOKxa0VraUhWrG4OKhNluHV60Fi9GeyW96T9cdrNOpXW4Mq3URqXFsZu11ERWNoSCnVuFKLRJqolJzDm7cOdbYmKNruwP9IVwOO/3ne95vud9vvcLvI7/U5QYd2h939zQ/hXwQjlPu7j0u7bosWmLHptWKOe9EiJSrBMzUmVytb+mD7t6WPTYtH+EQKGcpx2fGQLAkmAKGzucsFOLNv9wwk7NGpjR1iIpbYS1TmJMzqTH+bXwh16aNs8oTQvWMO/8LQInetqZNKhMGlQAjk5NRZizdX6Y+tRG2jyjIj9yqgOAVCVu/QroO1r02LTOhnMANPnnODo1xZnsLMySIlQAmDSopLi/ozfopSjgoCjgwFtXCUD3r19trAT64q3zw/QllmKWFM5kZwFwVXUz8OAXAA4s3GFs837xnVlSMEsKuXtyRe6IKV9bF4HB510AXGi/DsC2F7eoGHhA4vgTMcf7dg5FAQe5moQhZXkpd/YhHidXkd56GfuSTyg16wxExTGsRmDRY9P0j2viEukNermquhmTMykKODBLisi7sw+h/HaT6ZRqQbwyrYGtrn4AXMpBvvX/ZFiXAsfe/BCA6ZRq7ta3RozrSiSOP8HpDopShSpYEG+kJi6ROS24Pg+UGHdotVdO41IOsrs6XxAxSwq9QS9mSeFCQTpfZu3HUX2Kra5+TI3twje6ck3+OSxJZQy7eqL2i1UJ6MemrruNh/0TIl8TlxjmAac7iOZaPprzn3wkjqlOpDKtgaYFK5YEk+gXMRGovXI67P3T880AdGwp5cA720lvvYxZUvCrKpv8S0ynVAvH9wa9AJzfXELr/HAYqZgIrLxkmrvOMpHzFn5VJdMXpCjg4FnHx/g2VZKRKot6N/nnsC/5RLm2vbhFb9DLj/H7GEgqZ3BwMmpHjKkTdmwpJTuw/O1n9mcAGBcHOT4zhMMYhyXBhFlSeJxcBUCKFm54v6qGPV96DHWWzV1nVyV0/dh5ijxD5GqSkNzU2M7D/gkyfUH2Lo0AMJBULta5WP85AN8Hfg7DjI8GUNxSgd5+oxGp626jM6k8LFewcIeHSeW80VKOfcnH4+QqTvS0i3X2NJdxv9MasVYEAV2m4pYKADobzkUlEZG7+QMA7763FwYewJ/gBU37eGXXsS5j6Lv+W0lK37kecY5ZEiRpbQ8Uynla2cnKsNy9S7dFb5h1BshIlZl1Big7Wclz33KPv99p5URPexh46O7tlhFGfY8Ma5ZgZdy7dJvilgoBtMsoizE9p9d48v447umnAOyuzkdvwFNfjDLqf2TYcAme+wKkGWXSjDLu6afYrlnDwEND75z6024ZWfUiWvU2PGLK13Z9UBaxyzSjjO2alZza96Muprtcr3U0yWNSoG9uwrBaOZzuIE9u3I0Ys1tGBLhfVWMCf+n/Ad2Qoc71q6oACN1p6FiswK/jPxN/ANnQ6juGJXibAAAAAElFTkSuQmCC", "scheletro": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAEPklEQVR42u2WTWtUVxjHf+ecmUCJXDqRKiYbE+wH6FaLZYoKHSujllCLUErFxIBZaKG7lqFd6yaBvIgpXQQX0pqBmBoTuCC14CofIKUWSiJqY4ZL0hrvnPN0cXJvTDMzJlFoFz6bufeeM8//efk/L/Ba/mNRW/3DEdMhGSuMXHpvw9mnX95BrGaKX9UrN+Aw+wRgIhrAOYc4UBq0aKZPltbd7QvniTGbMkRtxuObi0PgLNb56wmwUw7wzwCFXA8T0QAA08US/eEcN/ldbduAw+yTW0uj6buLI6y4uvdNRoMFpxxaa6aLJfrCeSa4XxdHNwJPvHEuaghu1KoaC525bp+Wok9Lb76Vn/IHpB5Opt7B857b6kZgpWGDPcb/dOa600/d+T0+PbRLrUhk6nlfrVbQWuOc2wBolAYBpz0ZrTiM0nQGHnjw0kF2nj2d6psullDI5lOgjFfsnM+lURpxHvhv9wbTJ0s+z+LPTEav83rn56dxznnjLfSHczyrE+yaX8VqjBYcKs3rM4QmFNejId6/8TVadOr50Vw3F/J7eOfDt9d0rJYpQBbNs61UQRxNyfP5N5k1kiUMT59FU8x10ZtvBeBy+JCJSj9og9YBj4cGmBmf5XL4sGZfyNTKfzHoQiEIitE/v2eHXfFgRnMiOLfufjkaprw4jM4G3D52kYv53WvE1YvMjM+uRsFujgPNOMoVX367lu/y8e7PWBgZZfHqNQpBDwpBIexavkuMoRh0gfGl2hfOe9Kd+HZVu6EvnGcofLB5Eo7xm3Io3lr+BYDW6GdmxmfZefZ06l1y1rZ8xyt2FiwohP5wDoDwo2/oDLpRCN35PUidnpepbZXwuHl/CnSoXCKJ4L8VCQq04fkI94dzCIomFOfzbZ5XSZN4UQSSoZNF86j5AFfljzTMh34sUY6GedR8gMfN+5kP3qUcDfuSU46xymCqpzffSsxap6o3mGpGwK2W21qpCMWgKwXrzbdy6MZXPtcWJElvxjAWXcFWHadaelLvtzyMCrRLE4rri0PobMCxHadSxtuqr/2FEd+qc2c+SWteHJxsOYdCUvAXTcSaEZjgvjpiOgRl0whk0eAsSisWro5y7os7xDjGzpzyiRTD8ZazVI0GFEPhA/4ycPtlxnEcTYmtOowW0IaFKx548NJBZsZnU8bHRpO1jvP5Nj4I725py9KNDpMuaJ1KWf7D0jWAdW23VnW8ElmpTIpduicF2iWOpiSOpuTpk0lJKuUoe6VAuzx9MikrlUlpNPe3FYFk1WpCpTuBUZoslgLtAlCuDGAymgaL0vblOB1il+7JUfbKcTokeX/6xHsbV25JXLklK5VJiaOpNDJbkUyjw2U0t49d9A1Gm3QvrHx3zXdHZ9PRW3yzi+Zt8OCFS+lENADWbz1JrRulKeR6Gna4V8IBZRyFoAedDTBKpxtQspy+LPhr+V/IP0OKE3Pu7futAAAAAElFTkSuQmCC", "schermo": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAClklEQVR4nO2aPWsbQRCG3wQjVKqUEYLgOkWaNGqFQLhKcy7sf+A22KBfYJBIq3+gJmrSOBhMWjVurnAdAsZEpUvhRinEnvf2Pvbj5m7keJ7qdDrm5n13d3buOEAQBEEQBEEQBEEQ3hzvqAMet4+21DF1fm5+k+Z8QBnsuH20Xf76QBkyQzTEltIEEgP0Ub+/W1OEdLofhRFBAcxpro/6/d0af79/qpRUEYcnMT5+7ia/o+Gf1P8hhjjNgDLBQDOjnncvM49oiFSeLobkGuAreDXvAwAG5w+2+5GwmHYAAGeX6TxCDEkM0EW7CuZGGaHwMUSZcQBkq/e+CrbhY4jaTZIZoIt+LYJt2AwBjBrwvwgv4qV2PCXn3vOksj+wGjCarTGaNbeF5sFmgC6c0wQWA/IEc5nQuAG60Em0wSTaAABavTGLCVYDBucPZB2eKV4/fn68yVzjg17Z9WMbVgNW8z5W8z5pm6uLv1q2M+dCWEw7iXBz/y/DeQlU7RF8RjZ0FvgIVzRSA4qmvglHPfA2wLcmuIrXr6laDxQutcDbAFUTXPAVn3dtFRNclgTpO0EXVNErO1e1IPpQqwG3F91kBL+tvuDr4EdG3NWynXtOj1EntRfB24suWr0xnh9vckffpEnxQEO7wPVpnByXmdC0eMCxE6TAR1CI+LPLJ68OUOHUCVK2w8CuHpio0W/1xkExF9NOfY2Qz9ZXRl49mESblHh9uYTiMxMa3wavT2OMZrtjfc1TiQdqehYwqbIkzDVOKd7ENhuCDai6JJQJdYoH7LOh8SWgszMh5kxB3gqLAdwJcCMGcCfAjRjAnQA3YgB3AtykOkGqR97Dk5gkThEhz/1FvPkZkHw1VfcnrvsG9Se3giAIr5J/v44gRSnwmE8AAAAASUVORK5CYII=", "scopa": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABl0lEQVR4nO3VvUsCYRzA8a/iIBG2hAZBw2U0OfQvREtCL/9ChFuLQ0utORcEbtHWnPkCLTUUITR2hHDhEAWnNJRQOgTXIHecdlen9ztb+k3nnfD53vMcPPA/fzyhUUHpqGKY15VO3XIjo8L3tue578TQH9+ggGFGhEeNT81M9DwPNMAJPzm87dmCwAK84IEFeMUDCRgEFw8YFBcNGAYXCxgWFwnwg/sO8Iv7CpDAPQeko4phP0ykcPBwGKWjirE6Od798dKNkMLB5Ti2v21Jz6Mt7VjP3pcTYvi3ABMu6XnrXrtWBeBp68y6V5yNi+AAof637YftY4/Iqq++cYCIHW0UC8TmEo5/bGkNkrkUD7t3fs2eCTeKBdq16q94PP4BQDKX4lL/lAtQyxotreEJNydztCAXAKCWNc84wMralcj+A4T3T+sA3Bxce8KlJ1zp1EP9ET/hzeaYaIC1jOmoYmTXFQAWN6Zd8c3Mudjyg+0ssK/ExfGzIx7ElvQcRm4RJi758TkGOEWYuPTeuwb0R6hlLbDlB/gCYg5QidIL4L4AAAAASUVORK5CYII=", "slime": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAC60lEQVR42u1WS08TURT+ztBpbKIg8RE3uIGGh9ZE/4AuuiARaUriwrhw6wJK+AH8hkbKgq1rEgnWnZC0f4DKq7CgEiUhJjYpNWC1M8xxcefeTmf6mjTETc9mZu6cme875zvn3Av0rGf/2ciP81TwATufP1X3qVsCAb/gU9vjAABTN4EJcCNfP8TID4HJfBgWGI+uP1Hrh6VdrGV/qGc9UfJFgjoFn9oex9hgpG5992ILAMAMBA0dq9lTBKBBT5Q6JqB1Al6hS1R1wwPOLMDJhnqz/gcmLBhLg4K0q2Z8E5CRx/ZHVdr3znPYO8+BIICJBAkjaHhIdCWBjHzx2yu1tnexBQZATGBiz8eWHe/NuRO8j13rSI6WGYjvj6n7nXMb3M2cSYFLKc5SQ93NARn9yy8Plfby52SDaa4v2S5G6UsA1j7/VFmo0CU2/x5S2wzIwonnR2EGDWgkwAiAXtVVxApURs+ExEhaEbMYiEXvAACMpUGEuA+NilJrBD6ZDysANbGqOt6Of8DsyEdoICWHjDpgiJk2O5z2ZPT1+m9VlG4SngxU6FJpywz0z54ATDCDBlYOZrByMAMAmBtOCylAWBzZRFUX75ePpkFMIBLFOLFQRi5jwITVvgac004DoX/uu3r3K3UfIK5JQKyiXT6aBhOrbLi/zWUM7CRvNOwKz16Q3igi/vSe6usaVa5dmQAmpAovhAxgNZDIpV0uY/jbjExYWM2eIh69i7PUEDRQDdzZ//LKBCKGcCNYYBxHCnj8TG8L3pBAwFUWEtA5A5i4LjNs10IhUug48qZFKHez9EZRRO/ocakz221HdqEeR77WgbstnxwQ2Z0vth9Esk1k2zyP3lLzXhZYKzAJOLFQrgNvtk1Tq8NHZWmgThITlkciue6UUIJLAuZ8ESHua7gntDwRhRJlRcIJ3oyI9MsnB5r6+DqQuDMhfyrT6R5ggXe367ISSohMhPs0JCu71NWJqJMz31UcWnvWsyu3fzJXcvVnj67LAAAAAElFTkSuQmCC", "tagliola": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAD9klEQVR42u1VYWgbZRh+7nq3S7LhLsRCflTmrzQj65iZiM4/FScyDIT8EZrA9kOLgrp2taZTp5tj1tWWOFt/TIoULZnSP0OQroKygdhBqUs01rrVEWpCTAtpmxIvl97tXn/UO3JJm9j98FceOPi+777vnufe93nfD2iggQbuEyF7G/lEF/2vpIocN0gVOU4he1vVeKdg623wW1spaPHQ4sI4AcDIzTfhE12UTsZwYboHAcFNmVQCtlUVAcFtEhEQ3PTz6Cvkt7bSjgT4RJd+iM4PH8UHidN467EPkU7GjD2apgEAIvE+aKpqrN+d+4x04nOfPA0AOD98tEqcDmarRakwRYqkIeTqxtXsBNLJmEFoKGdZnDkSwYXpHgDAmSMR5KmEB2QefSPtsHx6E/JLT5jODLx2A1fkOaamAJ/oouidS1jJLW1JCgDd3ovYTRyKdA82Gw9JUmBlmrBuUdBUYoy/1kn7RtoBAO+e/A5fF2/XFqDIcZLWM1jL56BubAAAer2Dxvurpd+Z8hyXz/Xz6WQMbz8yZA61lcVoahAhRzcqz5hKS3d0cn6MAoKbtsqdT3TR7Ue9xtOJ/eS3tpIixym/PEkBwU26jwKC2zBx0OKhoMVD20YgZG+j0dQgnm85Cb7IVikNWjx09oBQs2re+7VUleeA4KaJ/FdQ1Cw6mrtMaTBVQUHeAM85MZEehs3GV5VjPXIAOHtAqHK8zcbjt/FRKJJWvwwVNWsKtT4+5hAwNFusK2Botohnm3eZhOepBLH9cXzpPQ1WY7Yvw6DFQ7pZeM4JRc2C55w4IYZwRZ5j/NZWOubYjMJTTs5E+pd4D749FvzwNyG6mmDKTZlJJSDudWAlt4SeQwOm1LKVTu2fCePFB1+HtJ4xIvL5WhSKHCcAeDn9C3MtV8L1rIqh2SKuZ1UcbuHRVGJwLVdCdDXBXG45SPnlSQrZ20hvXsf3nTLSUfOCWVwYp/zypFENl1sOklSYMh5FjpMix41up+/ziS6SClOUnB8jqTBFiwvjlJwfo07sr1lRpghEVxOMXvuZVAIA8MIfX6DzoTeqPBLNXcLD/uegqNnNlBVZ8JwTLMeB55xGD5HsHDRNg96W65qw68kBHN93CuJeB/pnwsikEuifCaOjuQs859z86HrG5GhF0mCz8YboE2Koiujcq99v2YC4yoVv1u4w/+aMACAyG0Zh+hb2WHbhz7s/gWVZsBwHTVXx7TMfoePWRazkltA/E4amqqb2rWkaCvIG3jkc2bb7Mf/lOgaA3cTh/ViviYBlWWNePu71DkJjN9Nd2ft3LKBSDKsxUKwaPv6xr+qi6jk0AI2luqT3LWA7QTslbaCBBsrxD50CK51o7v4VAAAAAElFTkSuQmCC"};
+/* =========================================================
+   DATI DI GIOCO – modifica qui numeri, testi e stanze
+   ========================================================= */
+
+const BUDGET_INIZIALE = 100;
+const DURATA_STANZA = 120; // secondi (timer "morbido": non blocca la partita)
+
+/* Attrezzi per pulire: usi = quante pulizie fa un acquisto */
+const TOOLS = {
+  scopa:   { nome: 'Scopa',   prezzo: 5,  usi: 5, pulisce: 'ragnatela', img: 'scopa' },
+  sacco:   { nome: 'Sacco',   prezzo: 5,  usi: 6, pulisce: 'ossa',      img: 'sacco' },
+  sale:    { nome: 'Sale',    prezzo: 10, usi: 2, pulisce: 'slime',     img: 'sale' },
+  pozione: { nome: 'Pozione', prezzo: 15, usi: 1, pulisce: 'slime_gigante', img: 'pozione', max: 1 },
+  retino:  { nome: 'Retino',  prezzo: 6,  usi: 3, pulisce: 'ragno',     img: 'retino', livello: 2 },
+};
+
+/* Trappole: materiale, visibile, mortale servono per le regole del Master */
+const TRAPS = {
+  frecce:          { nome: 'Frecce',        breve: 'Frecce',     prezzo: 10, materiale: 'legno',  visibile: true,  mortale: false, img: 'frecce' },
+  fossa:           { nome: 'Fossa coperta', breve: 'Fossa',      prezzo: 15, materiale: 'legno',  visibile: false, mortale: false, img: 'fossa' },
+  frecce_nascoste: { nome: 'Frecce nasc.',  breve: 'Frecce na.', prezzo: 20, materiale: 'legno',  visibile: false, mortale: false, img: 'frecce_nascoste' },
+  tagliola:        { nome: 'Tagliola',      breve: 'Tagliola',   prezzo: 20, materiale: 'ferro',  visibile: true,  mortale: false, img: 'tagliola' },
+  masso:           { nome: 'Masso',         breve: 'Masso',      prezzo: 25, materiale: 'pietra', visibile: false, mortale: true,  img: 'masso' },
+  rete:            { nome: 'Rete',          breve: 'Rete',       prezzo: 15, materiale: 'corda',  visibile: false, mortale: false, img: 'rete', livello: 2 },
+};
+
+/* Tipi di sporco: quale attrezzo serve */
+const DIRT = {
+  ragnatela:     { nome: 'ragnatela',     tool: 'scopa',   img: 'ragnatela' },
+  ossa:          { nome: 'mucchio di ossa', tool: 'sacco', img: 'ossa' },
+  slime:         { nome: 'slime',         tool: 'sale',    img: 'slime' },
+  slime_gigante: { nome: 'slime gigante', tool: 'pozione', img: 'slime', big: true },
+  ragno:         { nome: 'ragno',         tool: 'retino',  img: 'ragno', vivo: true },
+};
+
+/* Prologo: il Master spiega il gioco al tavolo */
+const PROLOGO = [
+  '«Benvenuta al mio tavolo, ranocchia! Funziona come una partita di ruolo: io sono il Master. Scrivo il dungeon, tiro i dadi dietro lo schermo e decido le regole. Tu? Tu sei la miniatura arancione lì in fondo.»',
+  '«Stasera arrivano i miei giocatori. Problema: il dungeon è ancora sporco dalla sessione scorsa. Ragnatele, ossa, slime... uno schifo. Il tuo lavoro è pulire e rimettere le trappole giuste.»',
+  '«Ti do 100 monete d\'oro. Prima di ogni stanza passi dal mio carretto e compri attrezzi e trappole. Il budget è uno solo per tutto il dungeon: se lo bruci subito, poi sono affari tuoi.»',
+  '«Le regole di ogni stanza le trovi sul mio post-it. Leggile. Potrei cambiarle. Anzi, le cambierò. E se incontri qualcuno nel dungeon... fai le tue scelte. Io lo verrò a sapere. Si comincia!»',
+];
+
+/* Stanze. Coordinate in pixel sul palco 1280x720 (l'area di gioco è alta 560). */
+const ROOMS = [
+  {
+    id: 1, nome: 'Ingresso', tema: 1,
+    battutaIngresso: '«Ragnatele ovunque. Che schifo. Pulisci, ranocchia.»',
+    regole: ['Almeno 1 trappola', 'Niente trappole mortali'],
+    notaRegole: '(è il primo livello!!)',
+    slots: [{ x: 330, y: 380 }, { x: 800, y: 380 }],
+    sporco: [
+      { tipo: 'ragnatela', x: 150, y: 120 }, { tipo: 'ragnatela', x: 470, y: 150 }, { tipo: 'ragnatela', x: 880, y: 150 },
+      { tipo: 'ossa', x: 200, y: 470 }, { tipo: 'ossa', x: 1010, y: 480 },
+    ],
+    speciali: ['tagliola_rotta', 'elmo', 'barile'],
+    flippy: { x: 592, y: 392 },
+  },
+  {
+    id: 2, nome: 'Corridoio', tema: 2,
+    battutaIngresso: '«Il corridoio. Il ladro del gruppo controlla ogni mattonella: niente trappole visibili, intesi?»',
+    regole: ['Tutti gli slot armati', 'Niente trappole visibili'],
+    notaRegole: '(il ladro ha Percezione +5)',
+    slots: [{ x: 230, y: 380 }, { x: 565, y: 430 }, { x: 900, y: 380 }],
+    sporco: [
+      { tipo: 'ragnatela', x: 160, y: 110 }, { tipo: 'ragnatela', x: 930, y: 190 },
+      { tipo: 'ossa', x: 420, y: 300 }, { tipo: 'ossa', x: 1100, y: 470 },
+      { tipo: 'slime', x: 120, y: 330 }, { tipo: 'slime', x: 760, y: 300 },
+    ],
+    speciali: [],
+    flippy: { x: 600, y: 300 },
+  },
+  {
+    id: 3, nome: 'Sala del boss', tema: 3,
+    battutaIngresso: '«La sala del boss. Deve fare paura: voglio almeno una trappola mortale. Il paladino se lo merita.»',
+    regole: ['Tutti gli slot armati', 'Almeno 1 trappola mortale'],
+    notaRegole: '(che paura!!)',
+    regolaNuova: 'Niente trappole di legno',
+    slots: [{ x: 300, y: 400 }, { x: 830, y: 400 }],
+    sporco: [
+      { tipo: 'ossa', x: 170, y: 300 }, { tipo: 'ossa', x: 1040, y: 300 },
+      { tipo: 'slime_gigante', x: 576, y: 300 },
+    ],
+    speciali: [],
+    flippy: { x: 440, y: 300 },
+  },
+];
+
+/* Battute del Master durante la stanza */
+const QUIPS = {
+  attrezzoSbagliato: ['«Con quello? Davvero?»', '«No. Quello non serve a niente qui.»', '«Ranocchia, attrezzo sbagliato. Concentrati.»'],
+  finitoAttrezzo: '«Hai finito gli usi. Il carretto era lì apposta.»',
+  nessunAttrezzo: '«Prima scegli un attrezzo dall\'inventario. Poi clicchi sullo sporco.»',
+  pulitoTutto: '«Pulito. Quasi mi commuovo.»',
+  tempoScaduto: '«Stanno parcheggiando. STANNO PARCHEGGIANDO!»',
+  trappolaMessa: ['«Mh. Interessante.»', '«Ok, vediamo come va.»', '«Il paladino ringrazia. Forse.»'],
+  cambioRegola: '«Aspetta, aspetta. Ho cambiato idea: il boss adesso è un DRAGO. Niente trappole di legno, bruciano. L\'ho scritto sul post-it.»',
+};
+
+/* =========================================================
+   SESSIONE 2 – "Le cripte"
+   Si gioca dopo il finale della sessione 1: soldi avanzati,
+   attrezzi rimasti e scelte fatte si portano avanti.
+   ========================================================= */
+const PAGA_BASE_2 = 40;   // la paga della sessione 2 è PAGA_BASE_2 + 10 × voto della sessione 1
+
+const ROOMS_2 = [
+  {
+    id: 4, nome: 'Cripta', tema: 4,
+    battutaIngresso: '«La cripta. Ci sono ragni ovunque: al carretto c\'è il retino nuovo, usalo.»',
+    regole: ['Almeno 2 trappole nascoste', 'Niente trappole di ferro'],
+    notaRegole: '(c\'è un golem magnetico!!)',
+    slots: [{ x: 250, y: 400 }, { x: 565, y: 440 }, { x: 880, y: 400 }],
+    sporco: [
+      { tipo: 'ragnatela', x: 140, y: 110 }, { tipo: 'ragnatela', x: 900, y: 200 },
+      { tipo: 'ragno', x: 420, y: 160 }, { tipo: 'ragno', x: 860, y: 290 }, { tipo: 'ragno', x: 120, y: 330 },
+      { tipo: 'ossa', x: 400, y: 490 }, { tipo: 'ossa', x: 1100, y: 480 },
+    ],
+    speciali: [],
+    flippy: { x: 600, y: 300 },
+  },
+  {
+    id: 5, nome: 'Tesoreria', tema: 5,
+    battutaIngresso: '«La tesoreria. Il forziere deve sembrare irresistibile... e costare caro a chi lo tocca.»',
+    regole: ['Tutti gli slot armati', 'Esattamente 1 trappola mortale'],
+    notaRegole: '(una sola: non sono un mostro)',
+    slots: [{ x: 300, y: 410 }, { x: 830, y: 410 }],
+    slotExtra: { x: 565, y: 470 },
+    sporco: [
+      { tipo: 'slime', x: 150, y: 320 }, { tipo: 'slime', x: 1050, y: 300 },
+      { tipo: 'ragno', x: 380, y: 170 }, { tipo: 'ragno', x: 880, y: 160 },
+      { tipo: 'ossa', x: 700, y: 330 },
+    ],
+    speciali: ['forziere'],
+    flippy: { x: 450, y: 300 },
+  },
+];
+
+/* Il prologo della sessione 2 è in parte dinamico (vedi game.js → prologo2) */
+const PROLOGO_2_FISSO = [
+  '«Novità di stasera: al carretto trovi il RETINO per i ragni e la RETE, una trappola di corda. Nascosta, non mortale, e soprattutto non è di ferro. Ti servirà.»',
+  '«E da stasera tiro il d20 quando mi pare. Se esce basso, qualcosa cambia. Se esce alto... cambia lo stesso, ma in meglio. Forse. Al lavoro!»',
+];
+
+/* =========================================================
+   FLIPPY – LE PULIZIE DEL DUNGEON
+   Logica di gioco (vanilla JS, nessuna dipendenza)
+   ========================================================= */
+(() => {
+'use strict';
+
+const $ = (sel, root = document) => root.querySelector(sel);
+// Percorso di uno sprite. (La versione "file unico" inserisce le immagini in window.ASSETS.)
+const A = name => (window.ASSETS && window.ASSETS[name]) || `assets/${name}.png`;
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+const stage = $('#stage');
+
+/* ---------- Scala del palco ---------- */
+let scale = 1;
+function fit() {
+  scale = Math.min(window.innerWidth / 1280, window.innerHeight / 720);
+  stage.style.transform = `scale(${scale})`;
+}
+window.addEventListener('resize', fit); fit();
+function toStage(e) {
+  const r = stage.getBoundingClientRect();
+  return { x: (e.clientX - r.left) / scale, y: (e.clientY - r.top) / scale };
+}
+
+/* ---------- Suoni (WebAudio, niente file) ---------- */
+let actx = null;
+function sfx(type) {
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = actx.createOscillator(), g = actx.createGain();
+    const map = { click: [520, .05], coin: [880, .12], clean: [660, .08], bad: [160, .18], place: [330, .1], dice: [440, .3] };
+    const [f, d] = map[type] || map.click;
+    o.type = type === 'bad' ? 'sawtooth' : 'square';
+    o.frequency.value = f;
+    if (type === 'coin') o.frequency.setValueAtTime(1320, actx.currentTime + .06);
+    g.gain.value = .04; g.gain.exponentialRampToValueAtTime(.0001, actx.currentTime + d);
+    o.connect(g).connect(actx.destination); o.start(); o.stop(actx.currentTime + d);
+  } catch (_) { /* audio non disponibile: pazienza */ }
+}
+
+/* ---------- Stato ---------- */
+let S;
+function newGame() {
+  S = {
+    money: BUDGET_INIZIALE,
+    level: 0,          // 0 = sessione 1, 1 = sessione 2
+    tools: { scopa: 0, sacco: 0, sale: 0, pozione: 0, retino: 0 },   // usi rimasti
+    traps: { frecce: 0, fossa: 0, frecce_nascoste: 0, tagliola: 0, masso: 0, rete: 0 },
+    history: [],       // risultati delle sessioni precedenti
+    cousin: null, goblinRevenge: null, marco: null, d20: null,
+    elmo: false,
+    roomIndex: 0,
+    results: [],
+    goblin: null,      // 'tenuto' | 'denunciato'
+    bribe: null,       // true = tangente accettata
+    adventurer: null,  // 'salvato' | 'rifiutato'
+    repMaster: 0, repCreature: 0,
+    goblinFine: 0,
+    pond: { cibo: false, caldo: false },
+  };
+}
+
+const rooms = () => (S.level === 0 ? ROOMS : ROOMS_2);
+const unlocked = d => !d.livello || d.livello <= S.level + 1;
+
+/* ---------- Navigazione tra schermate ---------- */
+let roomTimer = null;
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  $('#scr-' + id).classList.add('active');
+  if (id !== 'room') clearInterval(roomTimer);
+  $('#toast').classList.add('hidden');
+}
+function toast(text, ms = 1800) {
+  const t = $('#toast'); t.textContent = text; t.classList.remove('hidden');
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.add('hidden'), ms);
+}
+function floatText(text, x, y, color) {
+  const f = document.createElement('div');
+  f.className = 'float'; f.textContent = text; f.style.left = x + 'px'; f.style.top = y + 'px';
+  if (color) f.style.color = color;
+  stage.appendChild(f); setTimeout(() => f.remove(), 950);
+}
+
+/* ---------- Modale di dialogo (PNG / Master) ---------- */
+let modalOpen = false;
+function openDialog({ art, artBig, name, color = 'var(--gold)', line, choices }) {
+  modalOpen = true;
+  const m = $('#modal');
+  m.innerHTML = `
+    ${artBig ? `<div class="npc-art"><img src="${A(artBig)}" alt=""></div>` : ''}
+    <div class="dialog" style="border-color:${color}">
+      <div class="portrait" style="border-color:${color}"><img src="${A(art)}" alt=""></div>
+      <div class="body">
+        <div class="who"><span style="color:${color}">${name}</span></div>
+        <div class="line">${line}</div>
+        <div class="choices"></div>
+        <div class="muted" style="font-size:14px">Le conseguenze delle tue scelte si scoprono al resoconto.</div>
+      </div>
+    </div>`;
+  const box = $('.choices', m);
+  choices.forEach((c, i) => {
+    const b = document.createElement('button');
+    b.className = 'choice ' + (i === 0 ? 'a' : 'b');
+    b.innerHTML = `<b>${String.fromCharCode(65 + i)})  ${c.label}</b><span>${c.sub}</span>`;
+    if (c.disabled) { b.disabled = true; b.style.opacity = .45; b.style.cursor = 'not-allowed'; }
+    b.onclick = () => { sfx('click'); closeDialog(); c.onPick(); };
+    box.appendChild(b);
+  });
+  m.classList.remove('hidden');
+}
+function closeDialog() { $('#modal').classList.add('hidden'); modalOpen = false; setTimeout(runQueue, 300); }
+const queue = [];
+function enqueue(fn) { queue.push(fn); runQueue(); }
+function runQueue() { if (!modalOpen && queue.length && $('#scr-room').classList.contains('active')) queue.shift()(); }
+
+/* =========================================================
+   TITOLO
+   ========================================================= */
+function renderTitle() {
+  $('#scr-title').innerHTML = `
+    <div class="title-wrap">
+      <img class="hero" src="${A('flippy')}" alt="Flippy">
+      <h1>FLIPPY</h1>
+      <h2>Le pulizie del dungeon</h2>
+      <button class="btn" id="btn-start">INIZIA</button>
+      <div class="credits">Beta per il corso di Principi di Game Design · Icone: Fantasy RPG Pixel Icon Megapack · Sessione 1: circa 8 minuti · Sessione 2: circa 4 minuti</div>
+    </div>`;
+  $('#btn-start').onclick = () => { sfx('click'); newGame(); renderPrologue(0); show('prologue'); };
+  show('title');
+}
+
+/* =========================================================
+   PROLOGO – il Master al tavolo
+   ========================================================= */
+function renderPrologue(page, lines = PROLOGO, chip = 'PROLOGO · IL TAVOLO DEL MASTER') {
+  const el = $('#scr-prologue');
+  el.innerHTML = `
+    <div class="tbl-glow"></div><div class="tbl-lamp"></div>
+    <img class="abs" src="${A('master')}" style="left:512px;top:110px;width:256px;height:256px" alt="Il Master">
+    <div class="tbl-wood"></div>
+    <img class="abs" src="${A('schermo')}" style="left:384px;top:180px;width:512px;height:512px" alt="">
+    <div class="abs" style="left:222px;top:462px;width:92px;height:22px;border-radius:50%;background:#1e1a2b"></div>
+    <img class="abs" src="${A('flippy')}" style="left:220px;top:380px;width:96px;height:96px" alt="">
+    <img class="abs" src="${A('d20')}" style="left:90px;top:396px;width:96px;height:96px" alt="">
+    <img class="abs" src="${A('d20')}" style="left:330px;top:430px;width:64px;height:64px;transform:rotate(-20deg)" alt="">
+    <img class="abs" src="${A('patatine')}" style="left:930px;top:350px;width:144px;height:144px" alt="">
+    <div class="abs gold" style="left:1060px;top:356px;font-weight:600;transform:rotate(8deg)">*crunch*</div>
+    <div class="sheet"><b>SCHEDA PERSONAGGIO</b><br>Flippy · Rana · Liv. 1<br>Classe: addetta pulizie<br>FOR 3 · DES 14 · CAR 18</div>
+    <div class="chip" style="left:24px">${chip}</div>
+    <button class="btn ghost abs" id="btn-skip" style="right:24px;top:20px">SALTA INTRO</button>
+    <div class="dialog master">
+      <div class="portrait"><img src="${A('master')}" alt=""></div>
+      <div class="body">
+        <div class="who"><span class="gold">IL MASTER</span><span class="muted" style="font-size:14px">${page + 1} / ${lines.length}</span></div>
+        <div class="line">${lines[page]}</div>
+        <div class="foot">
+          <div class="dots">${lines.map((_, i) => `<i class="${i === page ? 'on' : ''}"></i>`).join('')}</div>
+          <button class="small-btn" id="btn-next">${page < lines.length - 1 ? 'CONTINUA ▼' : 'AL CARRETTO →'}</button>
+        </div>
+      </div>
+    </div>`;
+  $('#btn-next').onclick = () => {
+    sfx('click');
+    if (page < lines.length - 1) renderPrologue(page + 1, lines, chip);
+    else { renderShop(); show('shop'); }
+  };
+  $('#btn-skip').onclick = () => { sfx('click'); renderShop(); show('shop'); };
+}
+
+/* =========================================================
+   CARRETTO DEL MASTER (negozio prima di ogni stanza)
+   ========================================================= */
+let cart = {};
+const SHOP_NOTES = [[
+  '«Ti ho dato 100 monete, non un mutuo. Spendile con la testa.»',
+  '«Il corridoio ha slime. Gli slime odiano il sale. Te lo dico solo perché sono buono.»',
+  '«Ultima spesa. La sala del boss deve fare paura. E c\'è uno slime enorme, sappilo.»',
+], [
+  '«Gli attrezzi avanzati la settimana scorsa ce li hai ancora. Controlla prima di ricomprare.»',
+  '«Tesoreria: UNA trappola mortale, non due. E tieni qualcosa da parte: tiro il d20.»',
+]];
+function cartCost() {
+  let c = 0;
+  for (const [k, n] of Object.entries(cart)) c += (TOOLS[k] || TRAPS[k]).prezzo * n;
+  return c;
+}
+function renderShop() {
+  const room = rooms()[S.roomIndex];
+  const left = S.money - cartCost();
+  const card = (key, def, isTool) => {
+    const n = cart[key] || 0;
+    const owned = isTool ? S.tools[key] : S.traps[key];
+    const atMax = def.max && (owned + n * (isTool ? def.usi : 1)) >= def.max;
+    const canBuy = left >= def.prezzo && !atMax;
+    const tags = isTool
+      ? `<span class="tag">${def.usi} ${def.usi === 1 ? 'uso' : 'usi'}</span>${def.max ? '<span class="tag mortale">max 1</span>' : ''}`
+      : `<span class="tag ${def.materiale}">${cap(def.materiale)}</span><span class="tag ${def.visibile ? 'visibile' : 'nascosta'}">${def.visibile ? 'Visibile' : 'Nascosta'}</span>${def.mortale ? '<span class="tag mortale">Mortale</span>' : ''}`;
+    return `<div class="card ${n ? 'sel' : ''}">
+      <img class="ico" src="${A(def.img)}" alt="">
+      <div class="nm">${def.nome}${def.livello && S.level === 1 ? ' <span class="tag mortale" style="background:var(--good)">NUOVO</span>' : ''}</div>
+      <div class="pr"><img src="${A('moneta')}" alt="">${def.prezzo}</div>
+      <div class="tags">${tags}</div>
+      <div class="own">Hai: ${owned}${isTool ? ' usi' : ''}${n ? ` · +${n} nel carretto` : ''}</div>
+      <div class="qty">
+        <button class="minus" data-k="${key}" data-d="-1" ${n ? '' : 'disabled'} aria-label="Togli">−</button>
+        <button data-k="${key}" data-d="1" ${canBuy ? '' : 'disabled'}>COMPRA</button>
+      </div></div>`;
+  };
+  const rows = Object.entries(cart).filter(([, n]) => n).map(([k, n]) => {
+    const d = TOOLS[k] || TRAPS[k];
+    return `<div class="row"><span>${d.nome} ×${n}</span><span class="gold">${d.prezzo * n}</span></div>`;
+  }).join('') || '<div class="muted">Il carretto è vuoto.</div>';
+  $('#scr-shop').innerHTML = `
+    <div class="shop-head">
+      <div><h1>IL CARRETTO DEL MASTER</h1><p>${S.level ? 'Sessione 2 · ' : ''}Prima della stanza «${room.nome}» — il budget vale per tutta la sessione</p></div>
+      <div class="budget"><img src="${A('moneta')}" alt="">${left}</div>
+    </div>
+    <div class="shop-body">
+      <div class="catalog">
+        <h3>ATTREZZI</h3><div class="cards">${Object.entries(TOOLS).filter(([, d]) => unlocked(d)).map(([k, d]) => card(k, d, true)).join('')}</div>
+        <h3 style="margin-top:14px">TRAPPOLE</h3><div class="cards">${Object.entries(TRAPS).filter(([, d]) => unlocked(d)).map(([k, d]) => card(k, d, false)).join('')}</div>
+      </div>
+      <div class="cart panel">
+        <h2>NEL CARRETTO</h2>
+        <div class="rows">${rows}</div>
+        <hr>
+        <div class="rows">
+          <div class="row"><b>Totale</b><span class="gold">${cartCost()}</span></div>
+          <div class="row"><span>Restano dopo l'acquisto</span><span class="gold">${left}</span></div>
+        </div>
+        ${S.elmo ? `<button class="btn ghost" id="btn-elmo" style="width:100%;color:var(--gold);border-color:var(--gold)">VENDI L'ELMO ABBANDONATO +20</button>` : ''}
+        <div class="note"><b>MASTER:</b>${SHOP_NOTES[S.level][S.roomIndex]}</div>
+        <div><div class="muted" style="font-size:13px;font-weight:600">PROSSIMA STANZA</div>
+          <div style="font-size:16px">${room.nome} · ${room.slots.length} slot · ${room.regole.length} regole</div></div>
+        <div class="grow"></div>
+        <button class="btn" id="btn-go">VAI: ${room.nome.toUpperCase()} →</button>
+      </div>
+    </div>`;
+  $('#scr-shop').querySelectorAll('.qty button').forEach(b => b.onclick = () => {
+    const k = b.dataset.k, d = +b.dataset.d;
+    cart[k] = Math.max(0, (cart[k] || 0) + d);
+    sfx(d > 0 ? 'coin' : 'click'); renderShop();
+  });
+  const be = $('#btn-elmo');
+  if (be) be.onclick = () => { S.elmo = false; S.money += 20; sfx('coin'); toast('Elmo venduto: +20 monete'); renderShop(); };
+  $('#btn-go').onclick = () => {
+    sfx('click');
+    S.money -= cartCost();
+    for (const [k, n] of Object.entries(cart)) {
+      if (TOOLS[k]) S.tools[k] += TOOLS[k].usi * n; else S.traps[k] += n;
+    }
+    cart = {};
+    startRoom();
+  };
+}
+const cap = s => s[0].toUpperCase() + s.slice(1);
+
+/* =========================================================
+   STANZA
+   ========================================================= */
+let R; // stato della stanza corrente
+function startRoom() {
+  const def = rooms()[S.roomIndex];
+  R = {
+    def,
+    dirt: def.sporco.map((d, i) => ({ ...d, id: i, done: false })),
+    slotPos: def.slots.map(p => ({ ...p })),
+    slots: def.slots.map(() => null),
+    selTool: null, selTrap: null,
+    time: DURATA_STANZA, lateSaid: false,
+    actions: 0, ruleChanged: false, npcDone: false,
+    specials: Object.fromEntries(def.speciali.map(s => [s, true])),
+  };
+  // Conseguenze delle scelte passate
+  if (def.id === 3 && S.bribe === false) R.dirt.push({ tipo: 'ossa', x: 700, y: 480, id: 99, done: false, extra: true });
+  if (def.id === 2 && S.bribe === true) R.slots[1] = 'locked';
+  const goblinCleans = S.goblin === 'tenuto' && def.id > 1;
+  if (goblinCleans) R.dirt.forEach(d => { if (d.tipo === 'ossa') d.done = true; });
+  if (S.cousin && def.id === 5) R.dirt.forEach(d => { if (d.tipo === 'ragno') d.done = true; });
+
+  renderRoom();
+  show('room');
+  say(def.battutaIngresso, 4200);
+  if (goblinCleans) setTimeout(() => toast('Il goblin ha già pulito le ossa per te!', 2600), 800);
+
+  clearInterval(roomTimer);
+  roomTimer = setInterval(tick, 1000);
+
+  // Eventi programmati per stanza
+  if (def.id === 2 && S.bribe === null) setTimeout(() => enqueue(eventBoss), 3500);
+  if (def.id === 4 && !S.goblinRevenge) setTimeout(() => enqueue(eventGoblinReturn), 3500);
+  if (S.cousin && def.id === 5) setTimeout(() => toast('Il cugino goblin ha già acchiappato i ragni!', 2600), 800);
+}
+
+function tick() {
+  if (modalOpen) return;
+  R.time = Math.max(0, R.time - 1);
+  const t = $('#hud-timer');
+  if (t) { t.textContent = fmt(R.time); t.classList.toggle('late', R.time <= 20); }
+  if (R.time === 0 && !R.lateSaid) { R.lateSaid = true; say(QUIPS.tempoScaduto, 3000); sfx('bad'); }
+  const elapsed = DURATA_STANZA - R.time;
+  if (R.def.id === 1 && !S.goblin && elapsed === 25) enqueue(eventGoblin);
+  if (R.def.id === 3 && !S.adventurer && elapsed === 30) enqueue(eventAdventurer);
+  if (R.def.id === 3 && !R.ruleChanged && elapsed === 45) changeRule();
+  if (R.def.id === 5 && !S.marco && elapsed === 20) enqueue(eventMarco);
+  if (R.def.id === 5 && !S.d20 && elapsed === 35) enqueue(rollD20);
+}
+const fmt = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+
+function renderRoom() {
+  const def = R.def;
+  const el = $('#scr-room');
+  el.className = 'screen active theme-' + def.tema;
+  const regole = def.regole.map(r => `<li>• ${r}</li>`).join('')
+    + (R.ruleChanged ? `<li class="new">• ${def.regolaNuova}!!</li>` : '');
+  el.innerHTML = `
+    <div class="room-bg">
+      <div class="room-wall"></div><div class="room-floor"></div>
+      <img class="room-door" src="${A('porta')}" alt="">
+      <div id="dirt-layer"></div>
+      <div id="slot-layer"></div>
+      <div class="flippy" id="flippy" style="left:${def.flippy.x}px;top:${def.flippy.y}px"><img src="${A('flippy')}" alt="Flippy"></div>
+    </div>
+    <div class="hud">
+      <span class="money"><img class="coin" src="${A('moneta')}" alt="">${S.money}</span><span class="sep"></span>
+      <span>${S.level ? 'S2 · ' : ''}STANZA ${S.roomIndex + 1}/${rooms().length} · ${def.nome.toUpperCase()}</span><span class="sep"></span>
+      <span>⏳ <span class="timer" id="hud-timer">${fmt(R.time)}</span></span>
+    </div>
+    <div class="postit" id="postit" title="Clicca per ingrandire"><h4>APPUNTI DEL MASTER</h4><ul>${regole}</ul><div style="font-size:14px;opacity:.7">${def.notaRegole}</div></div>
+    <div class="mtoast hidden" id="mtoast"></div>
+    <div class="inv" id="inv"></div>`;
+  $('#postit').onclick = () => $('#postit').classList.toggle('big');
+  renderDirt(); renderSlots(); renderInv();
+}
+
+function renderDirt() {
+  const layer = $('#dirt-layer'); layer.innerHTML = '';
+  R.dirt.forEach(d => {
+    const info = DIRT[d.tipo];
+    const b = document.createElement('button');
+    b.className = 'dirt' + (info.big ? ' big' : '') + (info.vivo ? ' vivo' : '') + (d.done ? ' gone' : '');
+    b.style.left = d.x + 'px'; b.style.top = d.y + 'px';
+    b.innerHTML = `<img src="${A(info.img)}" alt="${info.nome}">`;
+    b.title = `${cap(info.nome)} – serve: ${TOOLS[info.tool].nome}`;
+    b.onclick = () => cleanDirt(d, b);
+    layer.appendChild(b);
+  });
+  // Oggetti speciali (stanza 1)
+  const sp = [
+    ['tagliola_rotta', 'tagliola', 650, 490, 'Tagliola rotta', 'opacity:.75;transform:rotate(-18deg)'],
+    ['elmo', 'elmo', 1120, 300, 'Elmo abbandonato', ''],
+    ['barile', 'barile', 60, 220, 'Un barile... si muove?', ''],
+    ['forziere', 'forziere', 576, 200, 'Il forziere: l\'esca della tesoreria', ''],
+  ];
+  sp.forEach(([key, img, x, y, title, st]) => {
+    if (!R.specials[key]) return;
+    const b = document.createElement('button');
+    b.className = 'dirt special' + (key === 'barile' ? ' barrel' : '');
+    b.style.left = x + 'px'; b.style.top = y + 'px';
+    if (key === 'barile') { b.style.width = '96px'; b.style.height = '96px'; }
+    if (key === 'forziere') { b.style.width = '128px'; b.style.height = '128px'; b.classList.remove('special'); }
+    b.innerHTML = `<img src="${A(img)}" alt="" style="${st}">`;
+    b.title = title;
+    b.onclick = () => special(key, b);
+    layer.appendChild(b);
+  });
+}
+
+function moveFlippy(x, y) {
+  const f = $('#flippy'); if (!f) return;
+  f.style.left = (x - 16) + 'px'; f.style.top = (y - 30) + 'px';
+  f.classList.remove('hop'); void f.offsetWidth; f.classList.add('hop');
+}
+
+function cleanDirt(d, btn) {
+  if (modalOpen || d.done) return;
+  const need = DIRT[d.tipo].tool;
+  if (!R.selTool) { say(QUIPS.nessunAttrezzo, 2500); sfx('bad'); return; }
+  if (R.selTool !== need) { say(pick(QUIPS.attrezzoSbagliato) + ` (Serve: ${TOOLS[need].nome})`, 2500); sfx('bad'); return; }
+  if (S.tools[need] <= 0) { say(QUIPS.finitoAttrezzo, 2500); sfx('bad'); return; }
+  S.tools[need]--; d.done = true; R.actions++;
+  btn.classList.add('gone'); sfx('clean');
+  moveFlippy(d.x, d.y);
+  floatText('pulito!', d.x + 10, d.y - 10, '#6CC070');
+  if (S.tools[need] === 0) R.selTool = null;
+  renderInv();
+  if (R.dirt.every(x => x.done)) setTimeout(() => say(QUIPS.pulitoTutto, 2500), 400);
+  if (R.def.id === 1 && !S.goblin && R.actions === 2) enqueue(eventGoblin);
+  if (R.def.id === 3 && !S.adventurer && R.actions === 1) enqueue(eventAdventurer);
+}
+
+function special(key, btn) {
+  if (modalOpen) return;
+  if (key === 'barile') { if (!S.goblin) enqueue(eventGoblin); return; }
+  if (key === 'forziere') { say('«Giù le zampe dal forziere! È l\'esca, non la paga.»', 2400); sfx('bad'); return; }
+  if (key === 'tagliola_rotta') {
+    if (!S.goblin) { say('«Aspetta... qualcosa si muove nel barile.»', 2200); enqueue(eventGoblin); return; }
+    delete R.specials.tagliola_rotta;
+    if (S.goblin === 'tenuto') { S.traps.tagliola++; toast('Il goblin ripara la tagliola: +1 Tagliola!'); sfx('coin'); }
+    else { toast('Butti la tagliola rotta.'); sfx('clean'); }
+  }
+  if (key === 'elmo') { delete R.specials.elmo; S.elmo = true; toast('Elmo raccolto: puoi venderlo al carretto (+20)'); sfx('coin'); }
+  moveFlippy(parseInt(btn.style.left), parseInt(btn.style.top));
+  renderDirt(); renderInv();
+}
+
+/* ---------- Slot delle trappole ---------- */
+function renderSlots() {
+  const layer = $('#slot-layer'); layer.innerHTML = '';
+  R.slotPos.forEach((p, i) => {
+    const s = document.createElement('div');
+    const v = R.slots[i];
+    s.className = 'slot' + (v === 'locked' ? ' locked' : v ? ' filled' : '') + (R.selTrap && !v ? ' target' : '');
+    s.dataset.i = i;
+    s.style.left = p.x + 'px'; s.style.top = p.y + 'px';
+    s.innerHTML = v === 'locked' ? 'RISERVATO<br>AL BOSS' : v ? `<img src="${A(TRAPS[v].img)}" alt="${TRAPS[v].nome}" title="Clicca per togliere">` : `SLOT ${i + 1}`;
+    s.onclick = () => slotClick(i);
+    layer.appendChild(s);
+  });
+}
+function slotClick(i) {
+  if (modalOpen) return;
+  const v = R.slots[i];
+  if (v === 'locked') { say('«Quello slot l\'hai promesso al boss. Ricordi?»', 2200); return; }
+  if (v) { S.traps[v]++; R.slots[i] = null; sfx('click'); renderSlots(); renderInv(); return; }
+  if (R.selTrap) placeTrap(R.selTrap, i);
+}
+function placeTrap(key, i) {
+  if (R.slots[i] || S.traps[key] <= 0) return;
+  S.traps[key]--; R.slots[i] = key; sfx('place');
+  if (S.traps[key] === 0) R.selTrap = null;
+  const p = R.slotPos[i]; moveFlippy(p.x + 40, p.y - 20);
+  if (Math.random() < .4) say(pick(QUIPS.trappolaMessa), 1800);
+  renderSlots(); renderInv();
+  if (R.def.id === 3 && !R.ruleChanged) setTimeout(changeRule, 900);
+  if (R.def.id === 5 && !S.d20) setTimeout(() => enqueue(rollD20), 900);
+}
+function changeRule() {
+  if (R.ruleChanged || R.def.id !== 3) return;
+  R.ruleChanged = true;
+  enqueue(() => {
+    openDialog({
+      art: 'master', name: 'IL MASTER', line: QUIPS.cambioRegola,
+      choices: [{ label: 'OK, CAPO', sub: 'Il post-it ora dice: niente trappole di legno', onPick: () => { renderRoom(); } }],
+    });
+  });
+}
+
+/* ---------- Inventario + drag & drop ---------- */
+function renderInv() {
+  const inv = $('#inv'); if (!inv) return;
+  const slot = (key, def, n, kind) => `
+    <div class="islot ${n ? '' : 'empty'} ${(kind === 'tool' ? R.selTool : R.selTrap) === key ? 'sel' : ''}" data-k="${key}" data-kind="${kind}" role="button" tabindex="0" aria-label="${def.nome}, ${n}">
+      <span class="n">x${n}</span><img src="${A(def.img)}" alt=""><span>${def.breve || def.nome}</span>
+    </div>`;
+  inv.innerHTML = `
+    <div class="grp"><h5>ATTREZZI · clicca, poi clicca lo sporco</h5><div class="row">${Object.entries(TOOLS).filter(([, d]) => unlocked(d)).map(([k, d]) => slot(k, d, S.tools[k], 'tool')).join('')}</div></div>
+    <div class="div"></div>
+    <div class="grp"><h5>TRAPPOLE · trascina su uno slot</h5><div class="row">${Object.entries(TRAPS).filter(([, d]) => unlocked(d)).map(([k, d]) => slot(k, d, S.traps[k], 'trap')).join('')}</div></div>
+    <div class="grow"></div>
+    <button class="btn" id="btn-done">FATTO!</button>`;
+  inv.querySelectorAll('.islot').forEach(el => {
+    const k = el.dataset.k, kind = el.dataset.kind;
+    if (kind === 'tool') {
+      el.onclick = () => {
+        if (S.tools[k] <= 0) { say(`«Non hai ${TOOLS[k].nome.toLowerCase()}. Il carretto è chiuso, ormai.»`, 2200); sfx('bad'); return; }
+        R.selTool = R.selTool === k ? null : k; sfx('click'); renderInv();
+      };
+    } else {
+      el.addEventListener('pointerdown', e => startDrag(e, k));
+    }
+    el.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); kind === 'tool' ? el.onclick() : toggleTrap(k); } };
+  });
+  $('#btn-done').onclick = finishRoom;
+}
+function toggleTrap(k) {
+  if (S.traps[k] <= 0) { sfx('bad'); return; }
+  R.selTrap = R.selTrap === k ? null : k; sfx('click'); renderInv(); renderSlots();
+}
+function startDrag(e, key) {
+  if (modalOpen) return;
+  if (S.traps[key] <= 0) { say('«Non ne hai. Dovevi comprarle.»', 1800); sfx('bad'); return; }
+  e.preventDefault();
+  const start = toStage(e);
+  let ghost = null, moved = false;
+  const move = ev => {
+    const p = toStage(ev);
+    if (!moved && Math.hypot(p.x - start.x, p.y - start.y) > 6) {
+      moved = true;
+      ghost = document.createElement('img'); ghost.src = A(TRAPS[key].img); ghost.className = 'drag-ghost';
+      stage.appendChild(ghost);
+    }
+    if (ghost) {
+      ghost.style.left = (p.x - 32) + 'px'; ghost.style.top = (p.y - 32) + 'px';
+      document.querySelectorAll('.slot').forEach(s => s.classList.remove('hover'));
+      const t = slotAt(ev); if (t) t.classList.add('hover');
+    }
+  };
+  const up = ev => {
+    window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up);
+    if (ghost) ghost.remove();
+    if (!moved) { toggleTrap(key); return; }
+    const t = slotAt(ev);
+    if (t) placeTrap(key, +t.dataset.i); else renderSlots();
+  };
+  window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+}
+function slotAt(ev) {
+  const el = document.elementsFromPoint(ev.clientX, ev.clientY).find(n => n.classList && n.classList.contains('slot'));
+  return el && !el.classList.contains('locked') && !el.classList.contains('filled') ? el : null;
+}
+
+/* ---------- Battute del Master ---------- */
+function say(text, ms = 2500) {
+  const t = $('#mtoast'); if (!t) return;
+  t.innerHTML = `<b>MASTER:</b>${text}`; t.classList.remove('hidden');
+  clearTimeout(say._t); say._t = setTimeout(() => t.classList.add('hidden'), ms);
+}
+
+/* =========================================================
+   EVENTI PNG (scelte morali)
+   ========================================================= */
+function eventGoblin() {
+  if (S.goblin) return;
+  openDialog({
+    art: 'goblin', artBig: 'goblin', name: 'GOBLIN NEL BARILE', color: 'var(--good)',
+    line: '«Ti prego, non buttarmi con la spazzatura! So riparare le cose, giuro. Quella tagliola rotta? Te la sistemo io. E le ossa... le ossa le pulisco io, d\'ora in poi.»',
+    choices: [
+      { label: 'TIENILO', sub: 'Ti aiuta a pulire e ripara la tagliola', onPick: () => { S.goblin = 'tenuto'; S.repCreature++; delete R.specials.barile; renderDirt(); toast('Il goblin resta con te.'); } },
+      { label: 'DENUNCIALO AL MASTER', sub: '+10 monete di ricompensa', onPick: () => { S.goblin = 'denunciato'; S.repMaster++; S.repCreature--; S.money += 10; delete R.specials.barile; renderRoom(); sfx('coin'); toast('+10 monete dal Master'); } },
+    ],
+  });
+}
+function eventBoss() {
+  if (S.bribe !== null) return;
+  openDialog({
+    art: 'boss', artBig: 'boss', name: 'IL BOSS (IN PAUSA PRANZO)', color: 'var(--danger)',
+    line: '«Psst, rana. Lascia vuoto uno slot del corridoio. Così gli eroi arrivano da me belli freschi e io faccio la mia figura. Ti do 30 monete. Nessuno lo saprà.»',
+    choices: [
+      { label: 'ACCETTA LA TANGENTE', sub: '+30 monete, ma uno slot resta vuoto', onPick: () => { S.bribe = true; S.money += 30; S.repMaster--; S.repCreature--; if (R.slots[1]) S.traps[R.slots[1]]++; R.slots[1] = 'locked'; renderRoom(); sfx('coin'); toast('+30 monete. Il boss ti fa l\'occhiolino.'); } },
+      { label: 'RIFIUTA', sub: 'Il boss si offende...', onPick: () => { S.bribe = false; say('«Il boss se l\'è legata al dito. Auguri.»', 2600); } },
+    ],
+  });
+}
+function eventAdventurer() {
+  if (S.adventurer) return;
+  const has = S.tools.pozione > 0;
+  openDialog({
+    art: 'avventuriero', artBig: 'avventuriero', name: 'AVVENTURIERO FERITO', color: 'var(--flippy)',
+    line: '«Sono rimasto indietro dalla sessione scorsa... il curatore se n\'è andato senza di me. Hai una pozione? Ti prego.»',
+    choices: [
+      { label: 'DAGLI LA POZIONE', sub: has ? 'Lo salvi, ma lo slime gigante resta lì' : 'Non hai pozioni', disabled: !has, onPick: () => { S.adventurer = 'salvato'; S.tools.pozione = 0; S.repCreature++; if (R.selTool === 'pozione') R.selTool = null; renderInv(); toast('L\'avventuriero ti ringrazia e zoppica verso l\'uscita.'); } },
+      { label: 'TIENI LA POZIONE', sub: has ? 'Ti serve per lo slime gigante' : '«Mi spiace, non ne ho.»', onPick: () => { S.adventurer = 'rifiutato'; } },
+    ],
+  });
+}
+
+/* =========================================================
+   FINE STANZA: valutazione
+   ========================================================= */
+function checkRules() {
+  const placed = R.slots.filter(v => v && v !== 'locked').map(k => TRAPS[k]);
+  const all = R.slots.every(v => v && v !== 'locked');
+  switch (R.def.id) {
+    case 1: return { ok: placed.length >= 1 && !placed.some(t => t.mortale), placed, all };
+    case 2: return { ok: all && !placed.some(t => t.visibile), placed, all };
+    case 3: return { ok: all && placed.some(t => t.mortale) && !placed.some(t => t.materiale === 'legno'), placed, all };
+    case 4: return { ok: placed.filter(t => !t.visibile).length >= 2 && !placed.some(t => t.materiale === 'ferro'), placed, all };
+    case 5: return { ok: all && placed.filter(t => t.mortale).length === 1 && S.marco !== 'venduto', placed, all };
+  }
+}
+function finishRoom() {
+  if (modalOpen) return;
+  // Gli eventi obbligatori devono succedere prima di chiudere la stanza
+  if (R.def.id === 1 && !S.goblin) { enqueue(eventGoblin); return; }
+  if (R.def.id === 2 && S.bribe === null) { enqueue(eventBoss); return; }
+  if (R.def.id === 3 && !S.adventurer) { enqueue(eventAdventurer); return; }
+  if (R.def.id === 3 && !R.ruleChanged) { changeRule(); return; }
+  if (R.def.id === 4 && !S.goblinRevenge) { enqueue(eventGoblinReturn); return; }
+  if (R.def.id === 5 && !S.marco) { enqueue(eventMarco); return; }
+  if (R.def.id === 5 && !S.d20) { enqueue(rollD20); return; }
+  sfx('click');
+  const rules = checkRules();
+  const clean = R.dirt.every(d => d.done);
+  const res = {
+    room: R.def.id, nome: R.def.nome, clean, rules: rules.ok,
+    placed: rules.placed, all: rules.all,
+    slimeLeft: R.dirt.some(d => d.tipo === 'slime_gigante' && !d.done),
+    dirtLeft: R.dirt.filter(d => !d.done).length,
+  };
+  S.results.push(res);
+  if (res.rules) S.repMaster++;
+  clearInterval(roomTimer);
+  if (S.roomIndex < rooms().length - 1) {
+    S.roomIndex++;
+    renderShop(); show('shop');
+  } else {
+    if (S.level === 0 && S.goblin === 'tenuto' && Math.random() < .5) S.goblinFine = 10;
+    if (S.level === 1) S.goblinFine = 0;
+    renderReport(); show('report');
+  }
+}
+
+/* =========================================================
+   RESOCONTO DEL MASTER
+   ========================================================= */
+function storyLines() {
+  if (S.level === 1) return storyLines2();
+  const [r1, r2, r3] = S.results, L = [];
+  if (r1.rules) L.push('«Il paladino di Marco è finito nella trappola dell\'ingresso. Ha pianto, ma poco. Ottimo.»');
+  else if (!r1.placed.length) L.push('«All\'ingresso non c\'era nessuna trappola. I giocatori hanno sbadigliato. Io pure.»');
+  else L.push('«Una trappola MORTALE al primo livello?! Il paladino è durato un minuto. Marco non mi parla più.»');
+
+  if (S.bribe) L.push('«Nel corridoio c\'era uno slot vuoto. Il ladro l\'ha notato e mi ha riso in faccia per dieci minuti.»');
+  else if (r2.rules) L.push('«Il ladro ha cercato trappole per mezz\'ora. Non le ha viste. Le ha sentite.»');
+  else if (r2.placed.some(t => t.visibile)) L.push('«Il ladro ha visto le trappole del corridoio da lontano. "Seriamente?", ha detto.»');
+  else L.push('«Uno slot vuoto nel corridoio. Il gruppo è passato fischiettando.»');
+
+  if (r3.rules) L.push('«Il drago e la tua trappola hanno fatto un lavoro splendido. Applausi al tavolo.»');
+  else if (r3.placed.some(t => t.materiale === 'legno')) L.push('«Le trappole di legno hanno preso fuoco al primo sbuffo del drago. L\'avevo SCRITTO.»');
+  else L.push('«La sala del boss non faceva paura a nessuno. Il drago si è offeso.»');
+
+  if (r3.slimeLeft) L.push('«Lo slime gigante era ancora lì. Il mago ci è scivolato sopra. Non era previsto.»');
+  else if (S.results.some(r => !r.clean)) L.push('«E c\'era ancora sporco in giro. Che figura.»');
+
+  if (S.goblin === 'tenuto') L.push(S.goblinFine ? '«Ah, e nel barile ho trovato delle impronte di goblin. Ti trattengo 10 monete, ranocchia.»' : '«Il barile era stranamente pulito. Non voglio sapere perché.»');
+  else L.push('«Grazie per la soffiata sul goblin. L\'ho rimesso a fare il mostro di livello 1.»');
+  if (S.adventurer === 'salvato') L.push('«L\'avventuriero ferito è tornato a casa. Dice che ti deve un favore.»');
+  return L.slice(0, 5);
+}
+function storyLines2() {
+  const [r4, r5] = S.results, L = [];
+  if (r4.rules) L.push('«Nella cripta il golem magnetico è passato indenne. Le trappole nascoste, invece, hanno fatto il loro dovere.»');
+  else if (r4.placed.some(t => t.materiale === 'ferro')) L.push('«Il golem magnetico si è attirato addosso tutte le trappole di ferro. Ora è un golem-tagliola. Grazie.»');
+  else L.push('«Nella cripta le trappole si vedevano da lontano. Il ladro ha preso appunti.»');
+  if (S.marco === 'venduto') L.push('«Marco sapeva esattamente dove stavano le trappole della tesoreria. Strano. MOLTO strano.»');
+  else if (r5.rules) L.push('«Il forziere ha fatto una vittima, una sola, come da copione. Marco ha giurato vendetta. Perfetto.»');
+  else if (r5.placed.filter(t => t.mortale).length > 1) L.push('«Due trappole mortali in tesoreria: gruppo sterminato. Io avevo detto UNA.»');
+  else L.push('«La tesoreria era un buffet libero. I giocatori sono usciti ricchi e felici. Io no.»');
+  if (S.goblinRevenge === 'sporcato') L.push('«Chi ha lasciato tutte quelle ossa nella cripta? Ah, il goblin offeso. Avresti dovuto pagarlo.»');
+  if (S.goblinRevenge === 'pagato') L.push('«Il goblin se n\'è andato con le tue monete. Pace fatta, credo.»');
+  if (S.cousin) L.push('«Il cugino del goblin vuole un contratto a tempo indeterminato. Ne parliamo.»');
+  if (S.results.some(r => !r.clean)) L.push('«E il dungeon era ancora sporco. Il mago ha starnutito per tutta la sessione.»');
+  if (S.d20 && S.d20 <= 10) L.push(`«Col d20 è uscito ${S.d20}: giocatore in più, slot in più. Il destino è crudele.»`);
+  return L.slice(0, 5);
+}
+function renderReport() {
+  const vote = S.results.reduce((a, r) => a + (r.clean ? 1 : 0) + (r.rules ? 1 : 0), 0);
+  const pay = vote * 10;
+  const total = S.money + pay - S.goblinFine;
+  S.final = { vote, pay, total };
+  const maxVote = S.results.length * 2;
+  const pips = { 0: [], 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] }[vote];
+  const mark = b => b ? '<span class="good">✓</span>' : '<span class="bad">✗</span>';
+  $('#scr-report').innerHTML = `
+    <h1>RESOCONTO DEL MASTER${S.level ? ' · SESSIONE 2' : ''}</h1>
+    <div class="sub">Stasera i giocatori hanno attraversato il tuo dungeon. Ecco com'è andata.</div>
+    <div class="rep">
+      <div class="rep-l panel">
+        <div class="die">${Array.from({ length: 9 }, (_, i) => `<i class="${pips.includes(i) ? 'on' : ''}"></i>`).join('')}</div>
+        <div class="vote">VOTO: ${vote} / ${maxVote}</div>
+        <table class="rtab"><tr><th>STANZA</th><th>PULIZIA</th><th>REGOLE</th></tr>
+          ${S.results.map(r => `<tr><td>${r.nome}</td><td>${mark(r.clean)}</td><td>${mark(r.rules)}</td></tr>`).join('')}
+        </table>
+        <div class="pay">
+          <div><span>Paga (10 × voto)</span><span class="gold">${pay}</span></div>
+          <div><span>Monete avanzate</span><span class="gold">${S.money}</span></div>
+          ${S.goblinFine ? `<div><span>Multa per il goblin</span><span class="bad">−${S.goblinFine}</span></div>` : ''}
+          <div><b>Totale da portare a casa</b><b class="gold">${total}</b></div>
+        </div>
+      </div>
+      <div class="rep-r">
+        <h3>COM'È ANDATA LA SESSIONE</h3>
+        ${storyLines().map(l => `<p>${l}</p>`).join('')}
+      </div>
+    </div>
+    <button class="btn" id="btn-pond">${S.level ? 'FINE DELLA SESSIONE →' : 'TORNA ALLO STAGNO →'}</button>`;
+  sfx('dice');
+  $('#btn-pond').onclick = () => { sfx('click'); if (S.level) { renderFinal(); show('ending'); } else { renderPond(); show('pond'); } };
+}
+
+/* =========================================================
+   LO STAGNO
+   ========================================================= */
+function renderPond() {
+  const total = S.final.total;
+  const spent = (S.pond.cibo ? 25 : 0) + (S.pond.caldo ? 15 : 0);
+  const left = total - spent;
+  const msg = S.pond.cibo && S.pond.caldo ? '<span class="good">I girini sono sazi e al calduccio. Flippy dorme tranquilla.</span>'
+    : S.pond.cibo ? '<span class="gold">I girini sono sazi, ma tremano dal freddo.</span>'
+    : S.pond.caldo ? '<span class="gold">Lo stagno è caldo, ma i girini hanno fame.</span>'
+    : '<span class="bad">I girini hanno fame e freddo. Flippy non chiude occhio.</span>';
+  const exp = (key, label, price) => {
+    const on = S.pond[key];
+    const can = on || left >= price;
+    return `<button class="exp ${on ? 'on' : ''}" data-k="${key}" ${can ? '' : 'disabled'}><span class="cb"></span><span class="grow">${label}</span><span class="gold">${price}</span></button>`;
+  };
+  $('#scr-pond').innerHTML = `
+    <div class="moon"></div>
+    <div class="pond-title"><h1>LO STAGNO DI FLIPPY</h1><p>Casa dolce casa. I girini hanno fame.</p></div>
+    <div class="pond-water"></div>
+    <img class="abs" src="${A('ninfea')}" style="left:110px;top:350px;width:128px;height:128px" alt="">
+    <img class="abs" src="${A('ninfea')}" style="left:520px;top:500px;width:112px;height:112px" alt="">
+    <img class="abs" src="${A('ninfea')}" style="left:290px;top:410px;width:176px;height:176px" alt="">
+    <img class="abs" src="${A('flippy')}" style="left:322px;top:412px;width:112px;height:112px" alt="Flippy">
+    ${[[160, 520], [600, 440], [250, 600], [660, 590]].map(([x, y], i) => `<img class="tad" src="${A('girino')}" style="left:${x}px;top:${y}px;animation-delay:${i * .6}s" alt="">`).join('')}
+    <div class="pond-panel panel">
+      <div class="money gold" style="font-size:24px;font-weight:600;display:flex;gap:8px;align-items:center"><img class="coin" src="${A('moneta')}" alt="">${left} monete</div>
+      <div class="muted" style="font-size:14px;font-weight:600">SPESE DELLA SETTIMANA</div>
+      ${exp('cibo', 'Cibo per i girini', 25)}
+      ${exp('caldo', 'Riscaldamento dello stagno', 15)}
+      <div style="font-size:17px">${msg}</div>
+      <button class="btn" id="btn-end">VEDI IL FINALE →</button>
+    </div>`;
+  $('#scr-pond').querySelectorAll('.exp').forEach(b => b.onclick = () => { S.pond[b.dataset.k] = !S.pond[b.dataset.k]; sfx('coin'); renderPond(); });
+  $('#btn-end').onclick = () => { sfx('click'); S.pondLeft = left; renderEnding(); show('ending'); };
+}
+
+/* =========================================================
+   FINALE (4 finali: reputazione Master × creature)
+   ========================================================= */
+function renderEnding() {
+  const mHigh = S.repMaster >= 2, cHigh = S.repCreature >= 1;
+  const E = mHigh && cHigh ? ['IL DUNGEON PERFETTO', 'Tutti contenti: il Master, le creature, perfino i giocatori. Il Master ti vuole anche per la prossima sessione.', ['master', 'flippy', 'goblin']]
+    : mHigh ? ['IMPIEGATO DEL MESE', 'Il Master ti assume a tempo pieno. Peccato che ogni creatura del dungeon ora ti guardi storto.', ['master', 'flippy']]
+    : cHigh ? ['LA RIVOLUZIONE', 'Le creature del dungeon fondano un sindacato e ti eleggono loro capo. Il Master è furioso.', ['goblin', 'flippy', 'slime']]
+    : ['LICENZIATO', 'Il Master non ti richiama. Le creature nemmeno. Flippy torna allo stagno senza lavoro.', ['flippy']];
+  const girini = S.pond.cibo && S.pond.caldo ? 'E i girini, almeno, stanno benissimo.' : 'E i girini aspettano ancora una settimana migliore.';
+  const pct = (v, max) => Math.max(5, Math.min(100, ((v + 2) / (max + 2)) * 100));
+  $('#scr-ending').innerHTML = `
+    <div class="end-wrap">
+      <div class="kicker">FINALE</div>
+      <div class="art">${E[2].map(a => `<img src="${A(a)}" alt="">`).join('')}</div>
+      <h1>${E[0]}</h1>
+      <p>${E[1]} ${girini}</p>
+      <div class="bars">
+        <div>Reputazione col Master<div class="bar"><i style="width:${pct(S.repMaster, 4)}%"></i></div></div>
+        <div>Reputazione con le creature<div class="bar"><i style="width:${pct(S.repCreature, 2)}%;background:var(--good)"></i></div></div>
+      </div>
+      <p class="muted" style="font-size:16px">Voto ${S.final.vote}/6 · ${S.final.total} monete guadagnate · Esistono 4 finali diversi.</p>
+      <div style="display:flex;gap:16px;align-items:center">
+        <button class="btn ghost" id="btn-again">RICOMINCIA</button>
+        <button class="btn" id="btn-s2">CONTINUA: SESSIONE 2 →</button>
+      </div>
+    </div>`;
+  S.lastEnding = E[0];
+  $('#btn-again').onclick = () => { sfx('click'); renderTitle(); };
+  $('#btn-s2').onclick = () => { sfx('click'); startLevel2(); };
+}
+
+/* =========================================================
+   SESSIONE 2 – cosa succede dopo
+   ========================================================= */
+function startLevel2() {
+  S.history.push({ results: S.results, final: S.final, ending: S.lastEnding });
+  S.level = 1; S.roomIndex = 0; S.results = []; S.goblinFine = 0;
+  const paga2 = PAGA_BASE_2 + 10 * S.final.vote;
+  S.money = (S.pondLeft || 0) + paga2;
+  const prev = S.history[0];
+  const recap = prev.final.vote >= 5
+    ? `«Ranocchia! La sessione di settimana scorsa? Voto ${prev.final.vote} su 6. I giocatori ne parlano ancora. Il mio gruppo vuole un seguito: LE CRIPTE.»`
+    : prev.final.vote >= 3
+      ? `«Settimana scorsa: voto ${prev.final.vote} su 6. Non male, non bene. I giocatori sono tornati comunque. Stasera si va nelle CRIPTE.»`
+      : `«Settimana scorsa: voto ${prev.final.vote} su 6. Marco ha minacciato di cambiare gruppo. Stasera nelle CRIPTE devi rimediare.»`;
+  const money = `«Ti avanzavano ${S.pondLeft || 0} monete: il budget di stasera è ${paga2} (${PAGA_BASE_2} più 10 per ogni punto di voto): fanno ${S.money}. Gli attrezzi che non hai usato sono ancora nel tuo inventario.»`;
+  const echo = S.goblin === 'tenuto'
+    ? '«Ah, e il tuo amico goblin del barile... ha detto che passa a trovarti. Con un parente.»'
+    : '«Ah, il goblin che mi hai denunciato? È ancora arrabbiato con te. Occhio.»';
+  renderPrologue(0, [recap, money + ' ' + echo, ...PROLOGO_2_FISSO], 'SESSIONE 2 · LE CRIPTE');
+  show('prologue');
+}
+
+function eventGoblinReturn() {
+  if (S.goblinRevenge) return;
+  if (S.goblin === 'tenuto') {
+    openDialog({
+      art: 'cugino', artBig: 'cugino', name: 'IL CUGINO DEL GOBLIN', color: 'var(--good)',
+      line: '«Mio cugino dice che sei una brava rana. Io acchiappo ragni meglio di qualsiasi retino. Per la tesoreria mi bastano 10 monete.»',
+      choices: [
+        { label: 'ASSUMILO', sub: S.money >= 10 ? '−10 monete: in tesoreria i ragni li prende lui' : 'Non hai 10 monete', disabled: S.money < 10, onPick: () => { S.goblinRevenge = 'cugino'; S.cousin = true; S.money -= 10; S.repCreature++; renderRoom(); toast('Il cugino goblin è assunto!'); } },
+        { label: 'NO, GRAZIE', sub: 'Fai da sola', onPick: () => { S.goblinRevenge = 'rifiutato'; } },
+      ],
+    });
+  } else {
+    openDialog({
+      art: 'goblin', artBig: 'goblin', name: 'IL GOBLIN (ARRABBIATO)', color: 'var(--danger)',
+      line: '«Ti ricordi di me? Per colpa tua il Master mi ha rimesso a fare il mostro di livello 1! Dammi 15 monete... o ti riempio la cripta di ossa.»',
+      choices: [
+        { label: 'PAGALO', sub: S.money >= 15 ? '−15 monete, pace fatta' : 'Non hai 15 monete', disabled: S.money < 15, onPick: () => { S.goblinRevenge = 'pagato'; S.money -= 15; S.repCreature++; renderRoom(); } },
+        { label: 'NON PAGARE', sub: 'Il goblin si vendica...', onPick: () => {
+          S.goblinRevenge = 'sporcato';
+          [[640, 300], [210, 250], [960, 470]].forEach(([x, y], i) => R.dirt.push({ tipo: 'ossa', x, y, id: 200 + i, done: false, extra: true }));
+          renderRoom(); say('«Il goblin ha rovesciato tre mucchi di ossa. Che dolcezza.»', 2600);
+        } },
+      ],
+    });
+  }
+}
+function eventMarco() {
+  if (S.marco) return;
+  openDialog({
+    art: 'marco', artBig: 'marco', name: 'MARCO, IL PALADINO (FUORI SESSIONE)', color: 'var(--flippy)',
+    line: '«Psst. Sono Marco, il giocatore. La settimana scorsa sono morto malissimo. Dimmi dove metti le trappole della tesoreria e ti do 25 monete. Il Master non lo saprà mai.»',
+    choices: [
+      { label: 'DIGLIELO', sub: '+25 monete, ma la tesoreria non funzionerà', onPick: () => { S.marco = 'venduto'; S.money += 25; S.repMaster -= 2; renderRoom(); sfx('coin'); toast('+25 monete. Marco ti fa l\'occhiolino.'); } },
+      { label: 'MANDALO VIA', sub: '«Niente spoiler, Marco.»', onPick: () => { S.marco = 'rifiutato'; S.repMaster++; say('«Ho visto Marco sgattaiolare via. Brava, ranocchia.»', 2400); } },
+    ],
+  });
+}
+function rollD20() {
+  if (S.d20) return;
+  const n = 1 + Math.floor(Math.random() * 20);
+  S.d20 = n;
+  const low = n <= 10;
+  sfx('dice');
+  openDialog({
+    art: 'd20', name: 'IL MASTER TIRA IL D20', line: `<span style="font-size:44px;font-weight:600;color:var(--gold)">${n}</span><br>` + (low
+      ? '«Basso! Marco ha portato un amico: c\'è un giocatore in più. Aggiungo uno slot... e va armato anche lui.»'
+      : '«Alto! Stasera mi sento generoso: ti regalo 10 monete per le spese. Non ci abituare.»'),
+    choices: [{ label: low ? 'NOOO' : 'GRAZIE, CAPO', sub: low ? 'Compare un terzo slot nella tesoreria' : '+10 monete', onPick: () => {
+      if (low) { R.slotPos.push({ ...R.def.slotExtra }); R.slots.push(null); } else S.money += 10;
+      renderRoom();
+    } }],
+  });
+}
+
+function renderFinal() {
+  const all = [...S.history.flatMap(h => h.results), ...S.results];
+  const vote = all.reduce((a, r) => a + (r.clean ? 1 : 0) + (r.rules ? 1 : 0), 0);
+  const mHigh = S.repMaster >= 4, cHigh = S.repCreature >= 2;
+  const E = mHigh && cHigh ? ['MASTER E MOSTRI TI ADORANO', 'Il Master ti nomina co-Master. Le creature ti hanno fatto una statua (piccola, verde, un po\' storta).', ['master', 'flippy', 'goblin', 'cugino']]
+    : mHigh ? ['BRACCIO DESTRO DEL MASTER', 'Il Master non scrive più un dungeon senza di te. Le creature, però, ti chiamano "la spia arancione".', ['master', 'flippy']]
+    : cHigh ? ['REGINA DEL SOTTOSUOLO', 'Le creature del dungeon ti seguirebbero ovunque. Il Master sta valutando di assumere un rospo al tuo posto.', ['goblin', 'flippy', 'ragno', 'slime']]
+    : ['DI NUOVO ALLO STAGNO', 'Il Master cerca un\'altra rana per la prossima sessione. Le creature fanno finta di non conoscerti.', ['flippy', 'girino']];
+  const pct = (v, max) => Math.max(5, Math.min(100, ((v + 3) / (max + 3)) * 100));
+  $('#scr-ending').innerHTML = `
+    <div class="end-wrap">
+      <div class="kicker">FINE DELLA BETA · DUE SESSIONI GIOCATE</div>
+      <div class="art">${E[2].map(a => `<img src="${A(a)}" alt="">`).join('')}</div>
+      <h1>${E[0]}</h1>
+      <p>${E[1]}</p>
+      <div class="bars">
+        <div>Reputazione col Master<div class="bar"><i style="width:${pct(S.repMaster, 7)}%"></i></div></div>
+        <div>Reputazione con le creature<div class="bar"><i style="width:${pct(S.repCreature, 4)}%;background:var(--good)"></i></div></div>
+      </div>
+      <p class="muted" style="font-size:16px">Voto totale ${vote}/10 · Sessione 1: «${S.history[0].ending}» · ${S.final.total} monete in tasca</p>
+      <p class="gold" style="font-size:18px">«La prossima settimana? Le Fogne. Porta gli stivali.» — il Master</p>
+      <button class="btn" id="btn-again">GIOCA ANCORA</button>
+    </div>`;
+  $('#btn-again').onclick = () => { sfx('click'); renderTitle(); };
+}
+
+/* Avvio */
+renderTitle();
+
+/* Hook per i test automatici */
+window.__flippy = { get S() { return S; }, get R() { return R; } };
+})();
+
+</script>
+</body>
+</html>

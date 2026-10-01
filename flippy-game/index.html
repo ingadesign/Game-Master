@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flippy – Le pulizie del dungeon</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="viewport">
+  <div id="stage">
+    <!-- Ogni schermata è una <section class="screen">. game.js le popola e le mostra. -->
+    <section id="scr-title" class="screen"></section>
+    <section id="scr-prologue" class="screen"></section>
+    <section id="scr-shop" class="screen"></section>
+    <section id="scr-room" class="screen"></section>
+    <section id="scr-report" class="screen"></section>
+    <section id="scr-pond" class="screen"></section>
+    <section id="scr-ending" class="screen"></section>
+    <div id="modal" class="hidden"></div>
+    <div id="toast" class="hidden"></div>
+  </div>
+</div>
+<script src="js/data.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
