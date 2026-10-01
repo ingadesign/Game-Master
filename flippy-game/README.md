@@ -42,18 +42,9 @@ Dopo il finale della sessione 1 si può continuare con **CONTINUA: SESSIONE 2**.
 
 ## Pubblicarlo su GitHub Pages
 
-1. Su GitHub crea un nuovo repository pubblico, per esempio `flippy`.
-2. Clicca **Add file → Upload files** e trascina **il contenuto** di questa cartella (`index.html`, `css/`, `js/`, `assets/`, `dist/`, `README.md`...). Poi clicca **Commit changes**.
-3. Vai su **Settings → Pages**. In "Build and deployment" scegli **Deploy from a branch**, branch **main**, cartella **/ (root)**, poi **Save**.
-4. Dopo un minuto il gioco è online su `https://TUO-NOME-UTENTE.github.io/flippy/`.
+Il gioco si trova nella cartella `flippy-game` del repository `Game-Master`. Per pubblicarlo, vai su **Settings → Pages** e in "Build and deployment" scegli **Deploy from a branch**, branch **main** e cartella **/ (root)**, poi clicca **Save**.
 
-Con git da terminale:
-```bash
-git init && git add . && git commit -m "Flippy beta"
-git branch -M main
-git remote add origin https://github.com/TUO-NOME-UTENTE/flippy.git
-git push -u origin main
-```
+Quando la pubblicazione è attiva, il gioco è raggiungibile qui: [https://ingadesign.github.io/Game-Master/flippy-game/](https://ingadesign.github.io/Game-Master/flippy-game/). Potrebbe volerci qualche minuto dopo il salvataggio delle impostazioni.
 
 ## Modificare il gioco
 
